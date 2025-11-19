@@ -1,0 +1,109 @@
+.ai-avatar-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.ai-avatar-button img {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25));
+  /* Add floating animation */
+  animation: ai-float 3s ease-in-out infinite;
+}
+
+@keyframes ai-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.ai-message-bubble {
+  position: relative;
+  background-color: white;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  width: 280px;
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+  color: #333;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.ai-message-bubble.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.ai-message-close-btn {
+  position: absolute;
+  top: 5px;
+  left: 8px; /* For RTL, left places it in the top-left corner */
+  background: none;
+  border: none;
+  font-size: 1.5rem; /* 24px */
+  line-height: 1;
+  color: #9ca3af; /* Tailwind gray-400 */
+  cursor: pointer;
+  padding: 0.25rem;
+  transition: color 0.2s ease;
+}
+
+.ai-message-close-btn:hover {
+  color: #374151; /* Tailwind gray-700 */
+}
+
+
+/* Creates the little tail on the chat bubble */
+.ai-message-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: 15px;
+  left: -15px; /* Position tail on the left for RTL layout */
+  width: 0;
+  height: 0;
+  border: 18px solid transparent;
+  border-right-color: white;
+  border-left: 0;
+  margin-top: -18px;
+}
+
+.ai-feedback-section {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #eee;
+  font-size: 0.8rem;
+}
+
+.ai-feedback-question {
+  margin-bottom: 0.5rem;
+  color: #666;
+}
+
+.ai-feedback-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ai-feedback-buttons button {
+  background-color: #f3f4f6;
+  border: none;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.ai-feedback-buttons button:hover {
+  background-color: #e5e7eb;
+}
+
+.ai-feedback-thanks {
+  color: #10b981; /* Green */
+  font-weight: bold;
+}

@@ -1,0 +1,7 @@
+{
+  "name": "nebras system",
+  "description": "نظام إدارة موارد متكامل وشامل (CRM, Sales, Inventory, HR) مصمم للشركات العربية.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
