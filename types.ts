@@ -1,6 +1,4 @@
 
-
-
 export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'installment';
 export type MovementType = 'sale' | 'purchase' | 'sale_return' | 'purchase_return' | 'initial' | 'adjustment';
 export type ReturnReason = 'defective' | 'wrong_item' | 'customer_dissatisfaction' | 'other';
@@ -15,6 +13,80 @@ export type NotificationType = 'stock' | 'invoice' | 'service' | 'expense' | 'pa
 
 export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
+
+// --- Treasury & Banking Types ---
+export type TransactionType = 'deposit' | 'withdrawal' | 'transfer' | 'expense' | 'income';
+export type TransactionStatus = 'pending' | 'cleared' | 'bounced';
+
+export interface Treasury {
+    id: string;
+    name: string;
+    balance: number;
+    description?: string;
+}
+
+export interface BankAccount {
+    id: string;
+    bankName: string;
+    accountNumber: string;
+    balance: number;
+    currency: string;
+}
+
+export interface FinancialTransaction {
+    id: string;
+    date: string;
+    type: TransactionType;
+    amount: number;
+    sourceId?: string; // Treasury or Bank ID
+    sourceType?: 'treasury' | 'bank';
+    destinationId?: string; // Treasury or Bank ID (for transfers)
+    destinationType?: 'treasury' | 'bank';
+    description: string;
+    referenceNumber?: string; // Check number or Transaction ID
+    status: TransactionStatus; // For reconciliation
+    dueDate?: string; // For post-dated checks
+}
+// --------------------------------
+
+// --- CRM Types ---
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost';
+export type InteractionType = 'call' | 'email' | 'meeting' | 'whatsapp' | 'note';
+export type CustomerSegment = 'vip' | 'regular' | 'new' | 'at_risk';
+
+export interface CRMInteraction {
+    id: string;
+    date: string;
+    type: InteractionType;
+    summary: string;
+    outcome?: string;
+}
+
+export interface CRMTask {
+    id: string;
+    title: string;
+    dueDate: string;
+    completed: boolean;
+}
+
+export interface Lead {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+    company?: string;
+    source: string; // e.g., Facebook, Walk-in
+    status: LeadStatus;
+    potentialValue: number; // Estimated deal value
+    createdAt: string;
+    interactions: CRMInteraction[];
+    tasks: CRMTask[];
+    // AI Fields
+    aiScore?: number; // 0-100 probability
+    aiNotes?: string;
+    aiBestContactTime?: string;
+}
+// ----------------
 
 export interface Product {
   id: string;
@@ -53,6 +125,7 @@ export interface Customer {
   joinDate: string; // ISO string
   loyaltyPoints: number;
   transactions: CustomerTransaction[];
+  segment?: CustomerSegment; // AI Segment
 }
 
 export interface Sale {
@@ -430,4 +503,9 @@ export interface Store {
   hrSettings: HRSettings;
   notifications: SystemNotification[];
   supportTickets: SupportTicket[];
+  leads: Lead[];
+  // Treasury & Banking Data
+  treasuries: Treasury[];
+  bankAccounts: BankAccount[];
+  financialTransactions: FinancialTransaction[];
 }

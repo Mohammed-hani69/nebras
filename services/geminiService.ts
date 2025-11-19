@@ -1,8 +1,11 @@
 
 
 
+
+
+
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Store, AISettings } from '../types';
+import type { Store, AISettings, Lead, Customer } from '../types';
 
 const API_KEY = process.env.API_KEY;
 
@@ -229,3 +232,104 @@ export const generateNotificationMessage = async (topic: string, tone: string, a
         return "عذرًا، حدث خطأ أثناء توليد الرسالة.";
     }
 }
+
+// --- CRM AI Functions ---
+
+export const analyzeLeadPotential = async (lead: Lead, aiSettings: AISettings): Promise<{ score: number; note: string; action: string }> => {
+    try {
+        const interactionsText = lead.interactions.map(i => `${i.date} (${i.type}): ${i.summary} [outcome: ${i.outcome || 'N/A'}]`).join('\n');
+        
+        const prompt = `
+            أنت خبير مبيعات و CRM. حلل بيانات العميل المحتمل (Lead) التالية وتوقع احتمالية إغلاق الصفقة (البيع).
+            
+            بيانات العميل:
+            الاسم: ${lead.name}
+            المرحلة الحالية: ${lead.status}
+            قيمة الصفقة المتوقعة: ${lead.potentialValue}
+            تاريخ الإنشاء: ${lead.createdAt}
+            
+            سجل التفاعلات:
+            ${interactionsText || 'لا يوجد تفاعلات مسجلة بعد.'}
+            
+            المطلوب (JSON only):
+            1. score: رقم من 0 إلى 100 يمثل نسبة احتمالية النجاح.
+            2. note: تعليل قصير جداً (جملة واحدة) للنسبة.
+            3. action: اقتراح الخطوة التالية الأفضل (Next Best Action).
+        `;
+
+        const response = await ai.models.generateContent({
+            model: aiSettings.model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                temperature: 0.3, // Low temp for analytical tasks
+            }
+        });
+
+        return JSON.parse(response.text);
+    } catch (error) {
+        console.error("Gemini CRM Analysis Error:", error);
+        return { score: 0, note: "فشل التحليل", action: "مراجعة يدوية" };
+    }
+};
+
+export const classifyCustomer = async (customer: Customer, totalSpent: number, transactionCount: number, aiSettings: AISettings): Promise<string> => {
+    try {
+        const prompt = `
+            صنف هذا العميل بناءً على البيانات التالية إلى واحدة من الفئات: (vip, regular, new, at_risk).
+            
+            البيانات:
+            تاريخ الانضمام: ${customer.joinDate}
+            إجمالي الإنفاق: ${totalSpent}
+            عدد العمليات: ${transactionCount}
+            نقاط الولاء: ${customer.loyaltyPoints}
+            
+            القواعد:
+            - vip: إنفاق عالي وتكرار عالي.
+            - new: انضم حديثاً (أقل من شهر) وإنفاق قليل.
+            - at_risk: لم يشتري منذ فترة طويلة وكان نشطاً سابقاً (يمكنك افتراض ذلك من البيانات المتاحة).
+            - regular: غير ذلك.
+            
+            أعد فقط الكلمة المفتاحية للتصنيف (vip/regular/new/at_risk) بدون أي نص إضافي.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: aiSettings.model,
+            contents: prompt,
+            config: {
+                temperature: 0.1,
+            }
+        });
+        
+        return response.text.trim().toLowerCase().replace(/[^a-z_]/g, '');
+    } catch (error) {
+        return 'regular';
+    }
+};
+
+export const suggestBestContactTime = async (lead: Lead, aiSettings: AISettings): Promise<string> => {
+     try {
+        const interactionsText = lead.interactions.map(i => `Date: ${i.date}, Type: ${i.type}`).join('\n');
+        const prompt = `
+            بناءً على سجل التفاعلات السابق، اقترح أفضل وقت (يوم ووقت تقريبي) للتواصل مع هذا العميل.
+            إذا لم توجد بيانات كافية، اقترح وقتاً عاماً مناسباً للأعمال.
+            
+            السجل:
+            ${interactionsText}
+            
+            الرد بجملة قصيرة جداً (مثال: "الخميس صباحاً" أو "بعد الظهر").
+        `;
+        
+        const response = await ai.models.generateContent({
+            model: aiSettings.model,
+            contents: prompt,
+             config: {
+                temperature: 0.4,
+                maxOutputTokens: 20
+            }
+        });
+        return response.text.trim();
+     } catch (error) {
+         return "غير محدد";
+     }
+};

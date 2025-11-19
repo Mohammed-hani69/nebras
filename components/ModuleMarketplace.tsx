@@ -1,12 +1,14 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import type { ModuleDefinition, Store } from '../types';
 import { 
     SparklesIcon, StoreIcon, ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, 
     BanknotesIcon, UsersIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, 
-    IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, DocumentDuplicateIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, ArrowPathRoundedSquareIcon
+    IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, DocumentDuplicateIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, ArrowPathRoundedSquareIcon, BuildingLibraryIcon
 } from './icons/Icons';
 
 interface ModuleMarketplaceProps {
@@ -34,6 +36,7 @@ const ICONS: { [key: string]: React.ReactNode } = {
     'ClipboardListIcon': <ClipboardListIcon />,
     'BriefcaseIcon': <BriefcaseIcon />,
     'ArrowPathRoundedSquareIcon': <ArrowPathRoundedSquareIcon />,
+    'BuildingLibraryIcon': <BuildingLibraryIcon />,
 };
 
 const CATEGORIES = [

@@ -3,9 +3,6 @@
 
 
 
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings } from '../types';
 import SuperAdminSidebar from './SuperAdminSidebar';
@@ -304,6 +301,10 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                 },
                 notifications: [], // Initialize notifications
                 supportTickets: [], // Initialize support tickets
+                leads: [], // Initialize leads
+                treasuries: [],
+                bankAccounts: [],
+                financialTransactions: [],
             };
             setStores(prev => [...prev, newStore]);
         }

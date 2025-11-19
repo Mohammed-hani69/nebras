@@ -1,8 +1,5 @@
-
-
-
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import type { Product, Sale, Service, Expense, Employee, Store, AIMessage, Customer, CustomerTransaction, Supplier, PurchaseOrder, PurchaseOrderPayment, PaymentMethod, CustomRole, AISettings, SaleReturn, PurchaseReturn, InventoryMovement, Invoice, InvoiceItem, BillingSettings, ModuleDefinition, InstallmentPlan, InstallmentPayment, ActivityLog, AttendanceRecord, Payroll, LeaveRequest, Advance, LeaveRequestStatus, HRSettings, PayrollDeduction, AttendanceStatus, Quotation, QuotationStatus, SystemNotification, ReturnStatus, SupportTicket, TicketMessage, TicketStatus } from './types';
+import type { Product, Sale, Service, Expense, Employee, Store, AIMessage, Customer, CustomerTransaction, Supplier, PurchaseOrder, PurchaseOrderPayment, PaymentMethod, CustomRole, AISettings, SaleReturn, PurchaseReturn, InventoryMovement, Invoice, InvoiceItem, BillingSettings, ModuleDefinition, InstallmentPlan, InstallmentPayment, ActivityLog, AttendanceRecord, Payroll, LeaveRequest, Advance, LeaveRequestStatus, HRSettings, PayrollDeduction, AttendanceStatus, Quotation, QuotationStatus, SystemNotification, ReturnStatus, SupportTicket, TicketMessage, TicketStatus, Lead, CRMInteraction, CRMTask, LeadStatus, Treasury, BankAccount, FinancialTransaction, TransactionType, TransactionStatus } from './types';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Inventory from './components/Inventory';
@@ -26,16 +23,20 @@ import ReturnsRefunds from './components/ReturnsRefunds';
 import ProgressBar from './components/ProgressBar';
 import NotificationsCenter from './components/NotificationsCenter';
 import SupportTicketing from './components/SupportTicketing';
+import TreasuryBanking from './components/TreasuryBanking';
+import AIAssistant from './components/AIAssistant';
 import { NebrasLogo } from './components/icons/Icons';
 import { initDB, loadStores, saveStores, loadAISettings, saveAISettings, loadMarketplaceSettings, saveMarketplaceSettings } from './services/db';
+import { getAiSuggestions } from './services/geminiService';
 
 const INITIAL_MODULES: ModuleDefinition[] = [
     { id: 'dashboard', label: 'لوحة التحكم', description: 'نظرة عامة على أداء المتجر', price: 0, category: 'basic', isCore: true, icon: 'ChartBarIcon' },
     { id: 'inventory', label: 'المخزون', description: 'إدارة المنتجات والكميات', price: 0, category: 'basic', isCore: true, icon: 'CubeIcon' },
     { id: 'pos', label: 'نقطة البيع', description: 'تسجيل المبيعات وإصدار الفواتير', price: 0, category: 'basic', isCore: true, icon: 'ShoppingCartIcon' },
+    { id: 'treasury-banking', label: 'الخزينة والبنوك', description: 'إدارة الخزائن، الحسابات البنكية، التحويلات، والشيكات.', price: 80, category: 'advanced', icon: 'BuildingLibraryIcon' },
     { id: 'invoicing', label: 'إدارة الفواتير', description: 'فواتير البيع والشراء وعروض الأسعار', price: 90, category: 'advanced', icon: 'DocumentDuplicateIcon' },
     { id: 'returns-refunds', label: 'إدارة المرتجعات', description: 'مرتجعات البيع والشراء وتحليل الأسباب', price: 60, category: 'advanced', icon: 'ArrowPathRoundedSquareIcon' },
-    { id: 'customer-management', label: 'إدارة العملاء', description: 'قاعدة بيانات العملاء والديون', price: 50, category: 'advanced', icon: 'IdentificationIcon' },
+    { id: 'customer-management', label: 'إدارة العملاء (CRM)', description: 'قاعدة بيانات العملاء، متابعة الفرص البيعية، وسجلات التواصل.', price: 50, category: 'advanced', icon: 'IdentificationIcon' },
     { id: 'suppliers-management', label: 'إدارة الموردين والمشتريات', description: 'أوامر الشراء وحسابات الموردين', price: 100, category: 'advanced', icon: 'TruckIcon' },
     { id: 'services', label: 'سجل الصيانة', description: 'تتبع طلبات الصيانة والإصلاح', price: 75, category: 'advanced', icon: 'WrenchScrewdriverIcon' },
     { id: 'installments', label: 'التقسيط والتمويل', description: 'إدارة خطط التقسيط وتتبع الدفعات', price: 120, category: 'premium', icon: 'CalendarDaysIcon' },
@@ -129,6 +130,18 @@ const defaultStores: Store[] = [
     hrSettings: DEFAULT_HR_SETTINGS,
     notifications: [],
     supportTickets: [],
+    leads: [
+        { id: 'LEAD-001', name: 'شركة التوفيق', phone: '0509998877', source: 'Facebook', status: 'new', potentialValue: 15000, createdAt: '2024-06-01T10:00:00Z', interactions: [], tasks: [] },
+        { id: 'LEAD-002', name: 'خالد عمر', phone: '0561234567', source: 'Walk-in', status: 'qualified', potentialValue: 3000, createdAt: '2024-06-10T14:00:00Z', interactions: [{id: 'INT-1', date: '2024-06-10', type: 'meeting', summary: 'تم عرض المنتجات وأبدى اهتماماً بـ iPhone'}], tasks: [{id: 'TSK-1', title: 'إرسال عرض سعر', dueDate: '2024-06-15', completed: false}] },
+        { id: 'LEAD-003', name: 'مؤسسة البناء', phone: '0544445555', source: 'Referral', status: 'negotiation', potentialValue: 50000, createdAt: '2024-05-20T09:00:00Z', interactions: [], tasks: [] }
+    ],
+    treasuries: [
+        { id: 'TR-MAIN', name: 'الخزينة الرئيسية', balance: 5000, description: 'الخزينة النقدية بالمحل' }
+    ],
+    bankAccounts: [
+        { id: 'BNK-1', bankName: 'بنك الراجحي', accountNumber: 'SA1234567890', balance: 25000, currency: 'SAR' }
+    ],
+    financialTransactions: []
   }
 ];
 
@@ -161,7 +174,6 @@ const App: React.FC = () => {
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
   const [marketplaceModules, setMarketplaceModules] = useState<ModuleDefinition[]>(INITIAL_MODULES);
   const initialLoadComplete = useRef(false);
-  const prevUser = useRef<CurrentUserWithPermissions | null>(null);
   
   const [activeView, setActiveView] = useState('dashboard');
 
@@ -213,6 +225,48 @@ const App: React.FC = () => {
           notifications: [newNotification, ...(store.notifications || [])]
       }));
   }, [updateStoreData]);
+  
+  const handleAiFeedback = useCallback((messageId: string, feedback: 'positive' | 'negative') => {
+        if (!currentStore) return;
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            aiMessages: s.aiMessages.map(m => m.id === messageId ? { ...m, feedback } : m)
+        }));
+    }, [currentStore, updateStoreData]);
+
+  // --- AI Auto-Suggestions ---
+  useEffect(() => {
+    if (!currentStore || !initialLoadComplete.current || !aiSettings.enableSuggestions) return;
+
+    const lastGen = localStorage.getItem(`last_ai_gen_${currentStore.id}`);
+    const now = Date.now();
+    
+    // Generate if not generated in last 24 hours
+    if (!lastGen || (now - parseInt(lastGen)) > 24 * 60 * 60 * 1000) {
+        const generate = async () => {
+            try {
+                const suggestions = await getAiSuggestions(currentStore, marketplaceModules, aiSettings);
+                if (suggestions.length > 0) {
+                    const newMessages: AIMessage[] = suggestions.map(txt => ({
+                        id: `AI-${Date.now()}-${Math.random()}`,
+                        content: txt,
+                        timestamp: new Date().toISOString(),
+                        read: false
+                    }));
+                    
+                    updateStoreData(currentStore.id, s => ({
+                        ...s,
+                        aiMessages: [...newMessages, ...(s.aiMessages || [])]
+                    }));
+                    localStorage.setItem(`last_ai_gen_${currentStore.id}`, now.toString());
+                }
+            } catch (e) {
+                console.error("AI Gen Error", e);
+            }
+        };
+        generate();
+    }
+  }, [currentStore?.id, aiSettings.enableSuggestions]);
 
   // --- Periodic Checks for Notifications (Subscription & Installments) ---
   useEffect(() => {
@@ -226,7 +280,6 @@ const App: React.FC = () => {
           const daysUntilExpiry = Math.ceil((subEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
           
           if (daysUntilExpiry <= 7 && daysUntilExpiry >= 0) {
-              // Check if we already notified recently (simple check to avoid spam on every render)
               const hasRecentSubNotif = currentStore.notifications.some(n => 
                   n.type === 'subscription' && 
                   new Date(n.timestamp).toDateString() === today.toDateString()
@@ -267,7 +320,7 @@ const App: React.FC = () => {
       };
 
       checkAutomatedNotifications();
-  }, [currentStore?.installmentPlans, currentStore?.subscriptionEndDate]); // Reduced dependencies to avoid loops
+  }, [currentStore?.installmentPlans, currentStore?.subscriptionEndDate]);
 
 
   useEffect(() => {
@@ -304,7 +357,124 @@ const App: React.FC = () => {
      if (initialLoadComplete.current && stores.length > 0) saveStores(stores).catch(console.error);
   }, [stores]);
 
-    // --- Business Logic Functions ---
+    // --- CRM Logic Functions ---
+    const addLead = useCallback((lead: Omit<Lead, 'id' | 'createdAt' | 'interactions' | 'tasks'>) => {
+        if (!currentStore) return;
+        const newLead: Lead = {
+            ...lead,
+            id: `LEAD-${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            interactions: [],
+            tasks: []
+        };
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            leads: [...(s.leads || []), newLead]
+        }));
+        logActivity(`إضافة عميل محتمل جديد: ${lead.name}`);
+    }, [currentStore, updateStoreData, logActivity]);
+
+    const updateLeadStatus = useCallback((leadId: string, status: LeadStatus) => {
+        if (!currentStore) return;
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            leads: (s.leads || []).map(l => l.id === leadId ? { ...l, status } : l)
+        }));
+        logActivity(`تحديث حالة العميل المحتمل #${leadId} إلى ${status}`);
+    }, [currentStore, updateStoreData, logActivity]);
+
+    const addCRMInteraction = useCallback((leadId: string, interaction: Omit<CRMInteraction, 'id'>) => {
+        if (!currentStore) return;
+        const newInteraction: CRMInteraction = { ...interaction, id: `INT-${Date.now()}` };
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            leads: (s.leads || []).map(l => l.id === leadId ? { ...l, interactions: [...l.interactions, newInteraction] } : l)
+        }));
+    }, [currentStore, updateStoreData]);
+
+    const addCRMTask = useCallback((leadId: string, task: Omit<CRMTask, 'id'>) => {
+        if (!currentStore) return;
+        const newTask: CRMTask = { ...task, id: `TSK-${Date.now()}` };
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            leads: (s.leads || []).map(l => l.id === leadId ? { ...l, tasks: [...l.tasks, newTask] } : l)
+        }));
+    }, [currentStore, updateStoreData]);
+    
+    const updateLeadAI = useCallback((leadId: string, aiData: { aiScore?: number; aiNotes?: string; aiBestContactTime?: string }) => {
+        if (!currentStore) return;
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            leads: (s.leads || []).map(l => l.id === leadId ? { ...l, ...aiData } : l)
+        }));
+    }, [currentStore, updateStoreData]);
+
+
+    // --- Treasury & Banking Functions ---
+    const addTreasury = useCallback((treasury: Omit<Treasury, 'id' | 'balance'> & { initialBalance: number }) => {
+        if (!currentStore) return;
+        const newTreasury: Treasury = { ...treasury, id: `TR-${Date.now()}`, balance: treasury.initialBalance };
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            treasuries: [...(s.treasuries || []), newTreasury]
+        }));
+        logActivity(`إضافة خزينة جديدة: ${treasury.name}`);
+    }, [currentStore, updateStoreData, logActivity]);
+
+    const addBankAccount = useCallback((account: Omit<BankAccount, 'id' | 'balance'> & { initialBalance: number }) => {
+        if (!currentStore) return;
+        const newAccount: BankAccount = { ...account, id: `BNK-${Date.now()}`, balance: account.initialBalance };
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            bankAccounts: [...(s.bankAccounts || []), newAccount]
+        }));
+        logActivity(`إضافة حساب بنكي جديد: ${account.bankName}`);
+    }, [currentStore, updateStoreData, logActivity]);
+
+    const addFinancialTransaction = useCallback((transaction: Omit<FinancialTransaction, 'id' | 'status'>) => {
+        if (!currentStore) return;
+        const newTx: FinancialTransaction = { ...transaction, id: `FTX-${Date.now()}`, status: 'pending' };
+        
+        // Update Balances Logic
+        updateStoreData(currentStore.id, s => {
+            let newTreasuries = [...(s.treasuries || [])];
+            let newBankAccounts = [...(s.bankAccounts || [])];
+
+            // Deduct from source
+            if (transaction.sourceType === 'treasury') {
+                newTreasuries = newTreasuries.map(t => t.id === transaction.sourceId ? { ...t, balance: t.balance - transaction.amount } : t);
+            } else if (transaction.sourceType === 'bank') {
+                newBankAccounts = newBankAccounts.map(b => b.id === transaction.sourceId ? { ...b, balance: b.balance - transaction.amount } : b);
+            }
+
+            // Add to destination (if transfer or deposit/income logic applied differently)
+            if (transaction.destinationType === 'treasury') {
+                newTreasuries = newTreasuries.map(t => t.id === transaction.destinationId ? { ...t, balance: t.balance + transaction.amount } : t);
+            } else if (transaction.destinationType === 'bank') {
+                newBankAccounts = newBankAccounts.map(b => b.id === transaction.destinationId ? { ...b, balance: b.balance + transaction.amount } : b);
+            }
+
+            return {
+                ...s,
+                treasuries: newTreasuries,
+                bankAccounts: newBankAccounts,
+                financialTransactions: [newTx, ...(s.financialTransactions || [])]
+            };
+        });
+        logActivity(`تسجيل حركة مالية: ${transaction.type} بقيمة ${transaction.amount}`);
+    }, [currentStore, updateStoreData, logActivity]);
+
+    const updateTransactionStatus = useCallback((txId: string, status: TransactionStatus) => {
+        if (!currentStore) return;
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            financialTransactions: (s.financialTransactions || []).map(t => t.id === txId ? { ...t, status } : t)
+        }));
+        logActivity(`تحديث حالة حركة مالية #${txId} إلى ${status}`);
+    }, [currentStore, updateStoreData, logActivity]);
+
+
+    // --- Existing Business Logic Functions ---
 
     const addSale = useCallback((saleData: Omit<Sale, 'invoiceId'>) => {
         if (!currentStore) return;
@@ -329,10 +499,7 @@ const App: React.FC = () => {
             newInstallmentPlan = { id: `PLAN-${invoiceId}`, sourceId: invoiceId, sourceType: 'sale', customerId: newSale.customerId, totalFinancedAmount: financedAmount, totalRepaymentAmount: totalRepayment, interestRate, numberOfInstallments, installmentAmount, startDate: newSale.date, payments };
         }
 
-        // Determine Notifications
         const notificationsToAdd: SystemNotification[] = [];
-        
-        // 1. New Invoice Notification
         notificationsToAdd.push({
             id: `NOTIF-INV-${invoiceId}`,
             type: 'invoice',
@@ -343,9 +510,8 @@ const App: React.FC = () => {
             priority: 'low'
         });
 
-        // 2. Low Stock Check
         const soldQty = currentStore.sales.filter(s => s.productId === newSale.productId).reduce((acc, s) => acc + s.quantity, 0) + newSale.quantity;
-        const currentQty = (product?.initialQuantity || 0) - soldQty; // Simplified check, ideally needs refined logic with adjustments
+        const currentQty = (product?.initialQuantity || 0) - soldQty;
         if (currentQty <= 3) {
              notificationsToAdd.push({
                 id: `NOTIF-STOCK-${product?.id}-${Date.now()}`,
@@ -370,6 +536,15 @@ const App: React.FC = () => {
                 }
                 return c;
             });
+            
+            // Auto-deposit to Treasury if cash/card
+            let newTreasuries = store.treasuries || [];
+            if (newSale.amountPaid > 0) {
+                if (newTreasuries.length > 0) {
+                    newTreasuries = newTreasuries.map((t, idx) => idx === 0 ? { ...t, balance: t.balance + newSale.amountPaid } : t);
+                }
+            }
+
             return {
                 ...store,
                 sales: [...store.sales, newSale],
@@ -377,7 +552,8 @@ const App: React.FC = () => {
                 inventoryMovements: [...store.inventoryMovements, newMovement],
                 installmentPlans: newInstallmentPlan ? [...store.installmentPlans, newInstallmentPlan] : store.installmentPlans,
                 customers: updatedCustomers,
-                notifications: [...notificationsToAdd, ...(store.notifications || [])]
+                notifications: [...notificationsToAdd, ...(store.notifications || [])],
+                treasuries: newTreasuries
             };
         });
         logActivity(`إضافة عملية بيع جديدة #${invoiceId}`);
@@ -473,7 +649,10 @@ const App: React.FC = () => {
                 }
                 return p;
             });
-            return { ...s, installmentPlans: updatedPlans };
+            // Add to treasury
+            const newTreasuries = (s.treasuries || []).map((t, i) => i === 0 ? { ...t, balance: t.balance + amount } : t);
+
+            return { ...s, installmentPlans: updatedPlans, treasuries: newTreasuries };
         });
         logActivity(`تسجيل دفعة قسط للخطة #${planId}`);
     }, [currentStore, updateStoreData, logActivity]);
@@ -483,7 +662,6 @@ const App: React.FC = () => {
         const newExpense = { ...expenseData, id: `EXP-${Date.now()}` };
         const notificationsToAdd: SystemNotification[] = [];
         
-        // High Expense Alert (Threshold e.g., 2000)
         if (newExpense.amount >= 2000) {
              notificationsToAdd.push({
                 id: `NOTIF-EXP-${newExpense.id}`,
@@ -496,11 +674,16 @@ const App: React.FC = () => {
             });
         }
 
-        updateStoreData(currentStore.id, s => ({ 
-            ...s, 
-            expenses: [...s.expenses, newExpense],
-            notifications: [...notificationsToAdd, ...(s.notifications || [])]
-        }));
+        updateStoreData(currentStore.id, s => {
+             // Deduct from treasury
+             const newTreasuries = (s.treasuries || []).map((t, i) => i === 0 ? { ...t, balance: t.balance - newExpense.amount } : t);
+             return { 
+                ...s, 
+                expenses: [...s.expenses, newExpense],
+                notifications: [...notificationsToAdd, ...(s.notifications || [])],
+                treasuries: newTreasuries
+            }
+        });
         logActivity('إضافة مصروف');
     }, [currentStore, updateStoreData, logActivity]);
 
@@ -576,7 +759,26 @@ const App: React.FC = () => {
             case 'pos': return <POS store={currentStore} products={currentStore.products.map(p => { const sold = currentStore.sales.filter(s => s.productId === p.id).reduce((sum, s) => sum + s.quantity, 0); const returned = currentStore.purchaseReturns.filter(pr => pr.productId === p.id).reduce((sum, r) => sum + r.quantity, 0); const salesReturned = currentStore.saleReturns.filter(sr => sr.productId === p.id).reduce((sum, r) => sum + r.quantity, 0); return { ...p, quantityAvailable: p.initialQuantity - sold - returned + salesReturned }; })} addSale={addSale} sales={currentStore.sales} customers={currentStore.customers} addCustomer={(c) => { const newC = { ...c, id: `CUST-${Date.now()}`, joinDate: new Date().toISOString(), loyaltyPoints: 0, transactions: [] }; updateStoreData(currentStore.id, s => ({...s, customers: [...s.customers, newC]})); return newC; }} createTaxInvoice={() => {}} saleReturns={currentStore.saleReturns} addSaleReturn={addSaleReturn} logActivity={logActivity} taxRate={currentStore.billingSettings.taxRate} invoices={currentStore.invoices} />;
             case 'invoicing': return <InvoicingModule store={currentStore} addQuotation={(q) => { updateStoreData(currentStore.id, s => ({...s, quotations: [...s.quotations, {...q, id: `QT-${Date.now()}`, date: new Date().toISOString(), status: 'pending'}]})); }} updateQuotationStatus={(id, st) => updateStoreData(currentStore.id, s => ({...s, quotations: s.quotations.map(q => q.id === id ? {...q, status: st} : q)}))} convertQuotationToInvoice={(id) => { const q = currentStore.quotations.find(q => q.id === id); if(q) { q.items.forEach(i => addSale({ date: new Date().toISOString(), productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, customerId: q.customerId, paymentMethod: 'cash', subtotal: i.quantity * i.unitPrice, taxRate: currentStore.billingSettings.taxRate, taxAmount: (i.quantity * i.unitPrice * currentStore.billingSettings.taxRate)/100, totalAmount: (i.quantity * i.unitPrice * (1 + currentStore.billingSettings.taxRate/100)), amountPaid: (i.quantity * i.unitPrice * (1 + currentStore.billingSettings.taxRate/100)), remainingBalance: 0, isFullyPaid: true, quotationId: q.id })); updateStoreData(currentStore.id, s => ({...s, quotations: s.quotations.map(q => q.id === id ? {...q, status: 'invoiced'} : q)})); } }} />;
             case 'returns-refunds': return <ReturnsRefunds store={currentStore} addPurchaseReturn={addPurchaseReturn} logActivity={logActivity} updateSaleReturnStatus={updateSaleReturnStatus} updatePurchaseReturnStatus={updatePurchaseReturnStatus} />;
-            case 'customer-management': return <CustomerManagement customers={currentStore.customers} sales={currentStore.sales} products={currentStore.products} addCustomer={(c) => { const newC = { ...c, id: `CUST-${Date.now()}`, joinDate: new Date().toISOString(), loyaltyPoints: 0, transactions: [] }; updateStoreData(currentStore.id, s => ({...s, customers: [...s.customers, newC]})); return newC; }} updateCustomer={(c) => updateStoreData(currentStore.id, s => ({...s, customers: s.customers.map(cust => cust.id === c.id ? c : cust)}))} deleteCustomer={(id) => updateStoreData(currentStore.id, s => ({...s, customers: s.customers.filter(c => c.id !== id)}))} addCustomerTransaction={(cid, t) => updateStoreData(currentStore.id, s => ({...s, customers: s.customers.map(c => c.id === cid ? {...c, transactions: [...c.transactions, {...t, id: `TRN-${Date.now()}`, date: new Date().toISOString()}]} : c)}))} logActivity={logActivity} />;
+            case 'customer-management': return (
+                <CustomerManagement 
+                    customers={currentStore.customers} 
+                    sales={currentStore.sales} 
+                    products={currentStore.products} 
+                    leads={currentStore.leads || []}
+                    aiSettings={aiSettings}
+                    addCustomer={(c) => { const newC = { ...c, id: `CUST-${Date.now()}`, joinDate: new Date().toISOString(), loyaltyPoints: 0, transactions: [] }; updateStoreData(currentStore.id, s => ({...s, customers: [...s.customers, newC]})); return newC; }} 
+                    updateCustomer={(c) => updateStoreData(currentStore.id, s => ({...s, customers: s.customers.map(cust => cust.id === c.id ? c : cust)}))} 
+                    deleteCustomer={(id) => updateStoreData(currentStore.id, s => ({...s, customers: s.customers.filter(c => c.id !== id)}))} 
+                    addCustomerTransaction={(cid, t) => updateStoreData(currentStore.id, s => ({...s, customers: s.customers.map(c => c.id === cid ? {...c, transactions: [...c.transactions, {...t, id: `TRN-${Date.now()}`, date: new Date().toISOString()}]} : c)}))} 
+                    logActivity={logActivity} 
+                    // CRM Props
+                    addLead={addLead}
+                    updateLeadStatus={updateLeadStatus}
+                    addCRMInteraction={addCRMInteraction}
+                    addCRMTask={addCRMTask}
+                    updateLeadAI={updateLeadAI}
+                />
+            );
             case 'suppliers-management': return <SuppliersManagement suppliers={currentStore.suppliers} products={currentStore.products} sales={currentStore.sales} purchaseOrders={currentStore.purchaseOrders} purchaseReturns={currentStore.purchaseReturns} addSupplier={(sup) => { updateStoreData(currentStore.id, s => ({...s, suppliers: [...s.suppliers, {...sup, id: `SUP-${Date.now()}`}]})); logActivity(`إضافة مورد: ${sup.name}`); }} updateSupplier={(sup) => updateStoreData(currentStore.id, s => ({...s, suppliers: s.suppliers.map(su => su.id === sup.id ? sup : su)}))} addPurchaseOrder={(po) => updateStoreData(currentStore.id, s => ({...s, purchaseOrders: [...s.purchaseOrders, {...po, id: `PO-${Date.now()}`, payments: [], status: 'pending'}]}))} addPurchaseOrderPayment={(poid, pay) => updateStoreData(currentStore.id, s => ({...s, purchaseOrders: s.purchaseOrders.map(po => po.id === poid ? {...po, payments: [...po.payments, {...pay, id: `PAY-${Date.now()}`}]} : po)}))} updatePurchaseOrderStatus={(id, st) => updateStoreData(currentStore.id, s => ({...s, purchaseOrders: s.purchaseOrders.map(po => po.id === id ? {...po, status: st} : po)}))} logActivity={logActivity} />;
             case 'services': return <ServiceLog services={currentStore.services} addService={addService} createTaxInvoice={() => {}} logActivity={logActivity} customers={currentStore.customers} taxRate={currentStore.billingSettings.taxRate} invoices={currentStore.invoices} />;
             case 'installments': return <Installments store={currentStore} addInstallmentPayment={addInstallmentPayment} />;
@@ -599,6 +801,16 @@ const App: React.FC = () => {
                     assignTicket={assignTicket}
                     addTicketMessage={addTicketMessage}
                     employees={currentStore.employees}
+                />
+            );
+            
+            case 'treasury-banking': return (
+                <TreasuryBanking
+                    store={currentStore}
+                    addTreasury={addTreasury}
+                    addBankAccount={addBankAccount}
+                    addFinancialTransaction={addFinancialTransaction}
+                    updateTransactionStatus={updateTransactionStatus}
                 />
             );
 
@@ -632,15 +844,22 @@ const App: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-gray-100 font-sans text-right" dir="rtl">
       {currentUser && currentStore && (
-        <Sidebar 
-            user={{ id: currentUser.id, username: currentUser.username, role: currentUser.role, permissions: currentUser.permissions }} 
-            activeView={activeView} 
-            setActiveView={setActiveView} 
-            onLogout={() => { setCurrentUser(null); setCurrentStore(null); setIsSuperAdminLoggedIn(false); }}
-            navItems={INITIAL_MODULES.filter(m => currentStore.enabledModules.includes(m.id))}
-            unreadMessagesCount={currentStore.aiMessages.filter(m => !m.read).length}
-            unreadNotificationsCount={currentStore.notifications?.filter(n => !n.read).length || 0}
-        />
+        <>
+          <Sidebar 
+              user={{ id: currentUser.id, username: currentUser.username, role: currentUser.role, permissions: currentUser.permissions }} 
+              activeView={activeView} 
+              setActiveView={setActiveView} 
+              onLogout={() => { setCurrentUser(null); setCurrentStore(null); setIsSuperAdminLoggedIn(false); }}
+              navItems={INITIAL_MODULES.filter(m => currentStore.enabledModules.includes(m.id))}
+              unreadMessagesCount={currentStore.aiMessages.filter(m => !m.read).length}
+              unreadNotificationsCount={currentStore.notifications?.filter(n => !n.read).length || 0}
+          />
+          <AIAssistant 
+            messages={currentStore.aiMessages} 
+            onAvatarClick={() => setActiveView('ai-assistant')} 
+            onFeedback={handleAiFeedback}
+          />
+        </>
       )}
       <main className="flex-1 p-6 overflow-y-auto">
         {renderContent()}
