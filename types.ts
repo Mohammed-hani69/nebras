@@ -1,14 +1,20 @@
 
+
+
 export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'installment';
 export type MovementType = 'sale' | 'purchase' | 'sale_return' | 'purchase_return' | 'initial' | 'adjustment';
 export type ReturnReason = 'defective' | 'wrong_item' | 'customer_dissatisfaction' | 'other';
+export type ReturnStatus = 'pending' | 'received' | 'processed' | 'refunded' | 'rejected';
 
 export type LeaveRequestType = 'annual' | 'sick' | 'unpaid' | 'other';
 export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AdvanceStatus = 'unpaid' | 'paid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'on_leave';
 export type QuotationStatus = 'pending' | 'approved' | 'rejected' | 'invoiced';
+export type NotificationType = 'stock' | 'invoice' | 'service' | 'expense' | 'payment' | 'subscription' | 'system';
 
+export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface Product {
   id: string;
@@ -225,6 +231,7 @@ export interface SaleReturn {
     quantity: number;
     amountReturned: number;
     reason: ReturnReason;
+    status: ReturnStatus;
 }
 
 export interface PurchaseReturn {
@@ -236,6 +243,7 @@ export interface PurchaseReturn {
     amountRefunded: number;
     reason: ReturnReason;
     notes?: string;
+    status: ReturnStatus;
 }
 
 export interface BillingSettings {
@@ -344,6 +352,45 @@ export interface HRSettings {
     absenceDeductionMethod: 'daily_rate' | 'manual';
 }
 
+export interface SystemNotification {
+    id: string;
+    type: NotificationType;
+    title: string;
+    message: string;
+    timestamp: string; // ISO String
+    read: boolean;
+    priority: 'low' | 'medium' | 'high';
+    actionLink?: string; // Optional link to a view (e.g., 'pos', 'invoicing')
+}
+
+// Support Ticket Interfaces
+export interface TicketAttachment {
+    name: string;
+    url: string;
+    type: string;
+}
+
+export interface TicketMessage {
+    id: string;
+    senderId: string; // User ID or Customer ID
+    senderName: string;
+    content: string;
+    timestamp: string;
+    attachments?: TicketAttachment[];
+}
+
+export interface SupportTicket {
+    id: string;
+    title: string;
+    description: string;
+    customerId?: string | null;
+    assignedTo?: string | null; // Employee ID
+    status: TicketStatus;
+    priority: TicketPriority;
+    createdAt: string;
+    updatedAt: string;
+    messages: TicketMessage[];
+}
 
 export interface Store {
   id: string;
@@ -381,4 +428,6 @@ export interface Store {
   leaves: LeaveRequest[];
   advances: Advance[];
   hrSettings: HRSettings;
+  notifications: SystemNotification[];
+  supportTickets: SupportTicket[];
 }

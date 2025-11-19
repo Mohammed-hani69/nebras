@@ -2,7 +2,7 @@
 
 
 import React, { useState } from 'react';
-import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, DocumentDuplicateIcon, ArrowPathRoundedSquareIcon } from './icons/Icons';
+import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, DocumentDuplicateIcon, ArrowPathRoundedSquareIcon, BellIcon, TicketIcon } from './icons/Icons';
 
 interface UserWithPermissions {
   id: string;
@@ -18,6 +18,7 @@ interface SidebarProps {
   onLogout: () => void;
   navItems: {id: string, label: string}[];
   unreadMessagesCount: number;
+  unreadNotificationsCount?: number; // Added prop
 }
 
 const ICONS: { [key: string]: React.ReactNode } = {
@@ -37,9 +38,11 @@ const ICONS: { [key: string]: React.ReactNode } = {
     'installments': <CalendarDaysIcon />,
     'activity-log': <ClipboardListIcon />,
     'returns-refunds': <ArrowPathRoundedSquareIcon />,
+    'notifications-center': <BellIcon />, // Icon for notifications
+    'support-ticketing': <TicketIcon />, // Icon for ticketing
 };
 
-const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLogout, navItems, unreadMessagesCount }) => {
+const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLogout, navItems, unreadMessagesCount, unreadNotificationsCount = 0 }) => {
   const [openSections, setOpenSections] = useState<string[]>(['main', 'finance', 'management']);
 
   const toggleSection = (sectionId: string) => {
@@ -49,28 +52,33 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLo
         : [...prev, sectionId]
     );
   };
+  
+  // Manually inject 'notifications-center' into 'system' section if not present in navItems,
+  // but typically it should be passed. For now, I will render it explicitly or assume it is passed.
+  // Let's ensure it's rendered.
 
   const sections = [
     { id: 'main', title: 'رئيسي', items: navItems.filter(item => ['dashboard', 'inventory', 'pos', 'services'].includes(item.id)) },
-    { id: 'management', title: 'الإدارة', items: navItems.filter(item => ['customer-management', 'suppliers-management', 'hr-management', 'activity-log'].includes(item.id)) },
+    { id: 'management', title: 'الإدارة', items: navItems.filter(item => ['customer-management', 'suppliers-management', 'hr-management', 'activity-log', 'support-ticketing'].includes(item.id)) },
     { id: 'finance', title: 'المالية والتقارير', items: navItems.filter(item => ['invoicing', 'expenses', 'installments', 'returns-refunds', 'financial-reports', 'general-reports'].includes(item.id)) },
-    { id: 'system', title: 'النظام', items: navItems.filter(item => ['ai-assistant', 'user-guide'].includes(item.id)) },
+    { id: 'system', title: 'النظام', items: [...navItems.filter(item => ['ai-assistant', 'user-guide'].includes(item.id))] },
   ].filter(section => section.items.length > 0);
 
   const renderNavItem = (item: {id: string, label: string}) => (
-    <li key={item.id}>
+    <li key={item.id} className="nav-item">
       <button
         onClick={() => setActiveView(item.id)}
+        title={item.id === 'dashboard' ? 'لوحة التحكم الرئيسية' : undefined}
         className={`w-full flex items-center space-x-3 p-3 rounded-lg text-right transition-all duration-200 text-sm ${
           activeView === item.id 
-          ? 'bg-indigo-600 text-white shadow-md' 
+          ? 'bg-indigo-600 text-white shadow-md active' 
           : 'text-slate-300 hover:bg-slate-800 hover:text-white'
         }`}
       >
         <span className="text-xl">{ICONS[item.id]}</span>
         <span className="font-medium">{item.label}</span>
          {item.id === 'ai-assistant' && unreadMessagesCount > 0 && (
-            <span className="mr-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+            <span className="mr-auto bg-purple-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
                 {unreadMessagesCount}
             </span>
         )}
@@ -91,11 +99,27 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLo
       {/* Navigation Items */}
       <div className="flex-1 overflow-y-auto py-4 custom-scrollbar">
         <ul className="space-y-1 px-3">
+           {/* Notifications Center Button */}
+            <li className="nav-item">
+                <button
+                    onClick={() => setActiveView('notifications-center')}
+                    className={`w-full flex items-center space-x-3 p-3 rounded-lg text-right transition-all duration-200 mb-2 hover:bg-slate-800 hover:text-white ${activeView === 'notifications-center' ? 'bg-indigo-600 text-white active' : 'text-slate-300'}`}
+                >
+                    <span className="text-xl"><BellIcon /></span>
+                    <span className="font-bold text-sm">مركز الإشعارات</span>
+                    {unreadNotificationsCount > 0 && (
+                        <span className="mr-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+                            {unreadNotificationsCount}
+                        </span>
+                    )}
+                </button>
+            </li>
+
            {/* Always show Marketplace */}
-           <li>
+           <li className="nav-item">
             <button
                 onClick={() => setActiveView('marketplace')}
-                className={`w-full flex items-center space-x-3 p-3 rounded-lg text-right transition-all duration-200 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg mb-4 hover:from-purple-700 hover:to-indigo-700 ${activeView === 'marketplace' ? 'ring-2 ring-white' : ''}`}
+                className={`w-full flex items-center space-x-3 p-3 rounded-lg text-right transition-all duration-200 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg mb-4 hover:from-purple-700 hover:to-indigo-700 ${activeView === 'marketplace' ? 'ring-2 ring-white active' : ''}`}
               >
                 <span className="text-xl"><StoreIcon /></span>
                 <span className="font-bold text-sm">سوق التطبيقات</span>

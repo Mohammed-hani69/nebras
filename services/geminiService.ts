@@ -1,4 +1,6 @@
 
+
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { Store, AISettings } from '../types';
 
@@ -193,5 +195,37 @@ export const generateModuleDescription = async (moduleLabel: string, aiSettings:
     } catch (error) {
         console.error("Gemini API Module Description Error:", error);
         return { short: "وصف غير متوفر", long: "عذرًا، لم نتمكن من توليد الوصف تلقائيًا." };
+    }
+}
+
+export const generateNotificationMessage = async (topic: string, tone: string, aiSettings: AISettings): Promise<string> => {
+    try {
+        const prompt = `
+            أنت مساعد ذكي لمدير نظام "نبراس".
+            المطلوب: صياغة رسالة تنبيه أو إشعار قصيرة ومحترفة لإرسالها إلى أصحاب المتاجر.
+            
+            الموضوع: ${topic}
+            النبرة (Tone): ${tone}
+            
+            تعليمات النظام: ${aiSettings.systemInstructions || ''}
+
+            يجب أن تكون الرسالة باللغة العربية، واضحة، ومباشرة. لا تزد عن جملتين أو ثلاثة.
+            لا تضع أي مقدمات أو نصوص إضافية، فقط نص الرسالة.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: aiSettings.model,
+            contents: prompt,
+            config: {
+                temperature: aiSettings.temperature,
+                topK: aiSettings.topK,
+                topP: aiSettings.topP,
+            }
+        });
+        
+        return response.text.trim();
+    } catch (error) {
+        console.error("Gemini API Notification Error:", error);
+        return "عذرًا، حدث خطأ أثناء توليد الرسالة.";
     }
 }

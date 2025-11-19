@@ -12,7 +12,7 @@ interface POSProps {
   addCustomer: (customer: Omit<Customer, 'id' | 'joinDate' | 'loyaltyPoints' | 'transactions'>) => Customer;
   createTaxInvoice: (sourceId: string, sourceType: 'sale') => void;
   saleReturns: SaleReturn[];
-  addSaleReturn: (saleReturn: Omit<SaleReturn, 'id' | 'date'>) => void;
+  addSaleReturn: (saleReturn: Omit<SaleReturn, 'id' | 'date' | 'status'>) => void;
   logActivity: (action: string) => void;
   taxRate: number;
   invoices: Invoice[];
@@ -449,3 +449,4 @@ const POS: React.FC<POSProps> = ({ store, products, addSale, sales, customers, a
 };
 
 export default POS;
+    

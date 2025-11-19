@@ -1,5 +1,8 @@
+
+
+
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import type { Product, Sale, Service, Expense, Employee, Store, AIMessage, Customer, CustomerTransaction, Supplier, PurchaseOrder, PurchaseOrderPayment, PaymentMethod, CustomRole, AISettings, SaleReturn, PurchaseReturn, InventoryMovement, Invoice, InvoiceItem, BillingSettings, ModuleDefinition, InstallmentPlan, InstallmentPayment, ActivityLog, AttendanceRecord, Payroll, LeaveRequest, Advance, LeaveRequestStatus, HRSettings, PayrollDeduction, AttendanceStatus, Quotation, QuotationStatus } from './types';
+import type { Product, Sale, Service, Expense, Employee, Store, AIMessage, Customer, CustomerTransaction, Supplier, PurchaseOrder, PurchaseOrderPayment, PaymentMethod, CustomRole, AISettings, SaleReturn, PurchaseReturn, InventoryMovement, Invoice, InvoiceItem, BillingSettings, ModuleDefinition, InstallmentPlan, InstallmentPayment, ActivityLog, AttendanceRecord, Payroll, LeaveRequest, Advance, LeaveRequestStatus, HRSettings, PayrollDeduction, AttendanceStatus, Quotation, QuotationStatus, SystemNotification, ReturnStatus, SupportTicket, TicketMessage, TicketStatus } from './types';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Inventory from './components/Inventory';
@@ -21,6 +24,8 @@ import ActivityLogComponent from './components/ActivityLog';
 import InvoicingModule from './components/InvoicingModule';
 import ReturnsRefunds from './components/ReturnsRefunds';
 import ProgressBar from './components/ProgressBar';
+import NotificationsCenter from './components/NotificationsCenter';
+import SupportTicketing from './components/SupportTicketing';
 import { NebrasLogo } from './components/icons/Icons';
 import { initDB, loadStores, saveStores, loadAISettings, saveAISettings, loadMarketplaceSettings, saveMarketplaceSettings } from './services/db';
 
@@ -39,6 +44,7 @@ const INITIAL_MODULES: ModuleDefinition[] = [
     { id: 'general-reports', label: 'التقارير العامة', description: 'تقارير المبيعات والمنتجات', price: 50, category: 'basic', icon: 'DocumentChartBarIcon' },
     { id: 'hr-management', label: 'الموارد البشرية (HR)', description: 'إدارة الموظفين، الحضور، الرواتب، الإجازات والسلف.', price: 180, category: 'premium', icon: 'BriefcaseIcon' },
     { id: 'activity-log', label: 'سجل الحركات', description: 'مراقبة جميع أنشطة المستخدمين في النظام', price: 80, category: 'advanced', icon: 'ClipboardListIcon'},
+    { id: 'support-ticketing', label: 'مركز البلاغات', description: 'نظام تذاكر الدعم والمتابعة والشكاوى', price: 0, category: 'basic', isCore: true, icon: 'TicketIcon' },
     { id: 'ai-assistant', label: 'المساعد الذكي', description: 'نصائح وتنبيهات بالذكاء الاصطناعي', price: 200, category: 'premium', icon: 'BrainIcon' },
     { id: 'user-guide', label: 'دليل المستخدم', description: 'شرح شامل للنظام', price: 0, category: 'basic', isCore: true, icon: 'QuestionMarkCircleIcon' },
 ];
@@ -121,6 +127,8 @@ const defaultStores: Store[] = [
     leaves: [],
     advances: [],
     hrSettings: DEFAULT_HR_SETTINGS,
+    notifications: [],
+    supportTickets: [],
   }
 ];
 
@@ -157,23 +165,18 @@ const App: React.FC = () => {
   
   const [activeView, setActiveView] = useState('dashboard');
 
-  // Update Store Helper - Modified to ensure synchronous-like feel for local state
+  // Update Store Helper
   const updateStoreData = useCallback((storeId: string, updater: (store: Store) => Store) => {
     setStores(prevStores => {
         const newStores = prevStores.map(store => store.id === storeId ? updater(store) : store);
-        
-        // If we are updating the currently active store, update it immediately in state
-        // to avoid waiting for the effect loop, making UI snappier
         if (currentStore && currentStore.id === storeId) {
              const updated = newStores.find(s => s.id === storeId);
              if (updated) setCurrentStore(updated);
         }
-        
         return newStores;
     });
   }, [currentStore]);
 
-  // Backup Sync currentStore with stores state if changed externally
   useEffect(() => {
     if (currentStore) {
         const updatedStore = stores.find(s => s.id === currentStore.id);
@@ -185,7 +188,6 @@ const App: React.FC = () => {
 
   const logActivity = useCallback((action: string) => {
     if (!currentStore || !currentUser) return;
-
     const newLog: ActivityLog = {
       id: `LOG-${Date.now()}`,
       timestamp: new Date().toISOString(),
@@ -193,12 +195,80 @@ const App: React.FC = () => {
       username: currentUser.username,
       action,
     };
-    
     updateStoreData(currentStore.id, store => ({
         ...store,
         activityLogs: [newLog, ...(store.activityLogs || [])]
     }));
   }, [currentUser, currentStore, updateStoreData]);
+
+  const addNotification = useCallback((storeId: string, notification: Omit<SystemNotification, 'id' | 'timestamp' | 'read'>) => {
+      const newNotification: SystemNotification = {
+          id: `NOTIF-${Date.now()}-${Math.random()}`,
+          timestamp: new Date().toISOString(),
+          read: false,
+          ...notification
+      };
+      updateStoreData(storeId, store => ({
+          ...store,
+          notifications: [newNotification, ...(store.notifications || [])]
+      }));
+  }, [updateStoreData]);
+
+  // --- Periodic Checks for Notifications (Subscription & Installments) ---
+  useEffect(() => {
+      if (!currentStore || !initialLoadComplete.current) return;
+
+      const checkAutomatedNotifications = () => {
+          const today = new Date();
+          
+          // 1. Subscription Expiry Check
+          const subEndDate = new Date(currentStore.subscriptionEndDate);
+          const daysUntilExpiry = Math.ceil((subEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (daysUntilExpiry <= 7 && daysUntilExpiry >= 0) {
+              // Check if we already notified recently (simple check to avoid spam on every render)
+              const hasRecentSubNotif = currentStore.notifications.some(n => 
+                  n.type === 'subscription' && 
+                  new Date(n.timestamp).toDateString() === today.toDateString()
+              );
+              
+              if (!hasRecentSubNotif) {
+                  addNotification(currentStore.id, {
+                      type: 'subscription',
+                      title: 'تنبيه انتهاء الاشتراك',
+                      message: `سينتهي اشتراكك خلال ${daysUntilExpiry} أيام. يرجى التجديد لضمان استمرار الخدمة.`,
+                      priority: 'high'
+                  });
+              }
+          }
+
+          // 2. Installment Payments Check
+          currentStore.installmentPlans.forEach(plan => {
+              plan.payments.forEach(payment => {
+                   if (payment.status !== 'paid') {
+                       const dueDate = new Date(payment.dueDate);
+                       const isDueSoon = dueDate.getTime() - today.getTime() <= (3 * 24 * 60 * 60 * 1000) && dueDate.getTime() > today.getTime();
+                       const isOverdue = dueDate.getTime() < today.getTime();
+                       
+                       const notifId = `PAY-DUE-${plan.id}-${payment.id}-${isOverdue ? 'OVER' : 'SOON'}`;
+                       const alreadyNotified = currentStore.notifications.some(n => n.id.includes(notifId) || (n.type==='payment' && n.message.includes(payment.id) && new Date(n.timestamp).toDateString() === today.toDateString()));
+                       
+                       if ((isDueSoon || isOverdue) && !alreadyNotified) {
+                           addNotification(currentStore.id, {
+                               type: 'payment',
+                               title: isOverdue ? 'دفعة مستحقة متأخرة' : 'تذكير بقرب موعد دفعة',
+                               message: `يوجد قسط بقيمة ${payment.amountDue} ج.م للعميل (خطة #${plan.id}) ${isOverdue ? 'متأخر عن السداد' : 'يستحق قريباً'}.`,
+                               priority: isOverdue ? 'high' : 'medium'
+                           });
+                       }
+                   }
+              });
+          });
+      };
+
+      checkAutomatedNotifications();
+  }, [currentStore?.installmentPlans, currentStore?.subscriptionEndDate]); // Reduced dependencies to avoid loops
+
 
   useEffect(() => {
     const setupDatabase = async () => {
@@ -206,10 +276,8 @@ const App: React.FC = () => {
         setLoadingProgress(10);
         await initDB();
         setLoadingProgress(30);
-        
         const [loadedStores, loadedAiSettings, loadedModules] = await Promise.all([loadStores(), loadAISettings(), loadMarketplaceSettings()]);
         setLoadingProgress(60);
-
         if (loadedStores && loadedStores.length > 0) {
           setStores(loadedStores);
         } else {
@@ -217,147 +285,99 @@ const App: React.FC = () => {
           await saveStores(defaultStores);
         }
         setLoadingProgress(80);
-
-        if (loadedAiSettings) {
-            setAiSettings(loadedAiSettings);
-        } else {
-            setAiSettings(DEFAULT_AI_SETTINGS);
-            await saveAISettings(DEFAULT_AI_SETTINGS);
-        }
-
-        if (loadedModules) {
-            setMarketplaceModules(loadedModules);
-        } else {
-            await saveMarketplaceSettings(INITIAL_MODULES);
-        }
+        if (loadedAiSettings) setAiSettings(loadedAiSettings);
+        else await saveAISettings(DEFAULT_AI_SETTINGS);
+        if (loadedModules) setMarketplaceModules(loadedModules);
+        else await saveMarketplaceSettings(INITIAL_MODULES);
         setLoadingProgress(100);
-
       } catch (error) {
         console.error("Database setup failed:", error);
-        alert("فشل في إعداد قاعدة البيانات. سيتم استخدام البيانات الافتراضية.");
         setStores(defaultStores);
       } finally {
-        setTimeout(() => {
-            setIsLoading(false);
-            initialLoadComplete.current = true;
-        }, 500);
+        setTimeout(() => { setIsLoading(false); initialLoadComplete.current = true; }, 500);
       }
     };
     setupDatabase();
   }, []);
 
   useEffect(() => {
-     if (initialLoadComplete.current && stores.length > 0) {
-         saveStores(stores).catch(console.error);
-     }
+     if (initialLoadComplete.current && stores.length > 0) saveStores(stores).catch(console.error);
   }, [stores]);
 
-  // --- Business Logic Functions ---
+    // --- Business Logic Functions ---
 
     const addSale = useCallback((saleData: Omit<Sale, 'invoiceId'>) => {
         if (!currentStore) return;
-
         const invoiceId = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         const newSale: Sale = { ...saleData, invoiceId };
-
-        // Create Inventory Movement (Sale = Out)
-        const newMovement: InventoryMovement = {
-            id: `MOV-${Date.now()}`,
-            date: newSale.date,
-            productId: newSale.productId,
-            type: 'sale',
-            quantity: -newSale.quantity, // Negative quantity for sales
-            referenceId: invoiceId,
-            notes: `بيع فاتورة #${invoiceId}`
-        };
-
-        // Create Auto Invoice
+        const newMovement: InventoryMovement = { id: `MOV-${Date.now()}`, date: newSale.date, productId: newSale.productId, type: 'sale', quantity: -newSale.quantity, referenceId: invoiceId, notes: `بيع فاتورة #${invoiceId}` };
         const product = currentStore.products.find(p => p.id === newSale.productId);
-        const newInvoice: Invoice = {
-            id: invoiceId,
-            sourceId: invoiceId,
-            sourceType: 'sale',
-            date: newSale.date,
-            customerName: currentStore.customers.find(c => c.id === newSale.customerId)?.name || 'عميل عام',
-            items: [{
-                description: product?.name || 'منتج',
-                quantity: newSale.quantity,
-                unitPrice: newSale.unitPrice,
-                total: newSale.subtotal
-            }],
-            subtotal: newSale.subtotal,
-            taxRate: newSale.taxRate,
-            taxAmount: newSale.taxAmount,
-            total: newSale.totalAmount,
-            amountPaid: newSale.amountPaid,
-            remainingBalance: newSale.remainingBalance
-        };
+        const newInvoice: Invoice = { id: invoiceId, sourceId: invoiceId, sourceType: 'sale', date: newSale.date, customerName: currentStore.customers.find(c => c.id === newSale.customerId)?.name || 'عميل عام', items: [{ description: product?.name || 'منتج', quantity: newSale.quantity, unitPrice: newSale.unitPrice, total: newSale.subtotal }], subtotal: newSale.subtotal, taxRate: newSale.taxRate, taxAmount: newSale.taxAmount, total: newSale.totalAmount, amountPaid: newSale.amountPaid, remainingBalance: newSale.remainingBalance };
 
-        // Handle Installments
         let newInstallmentPlan: InstallmentPlan | null = null;
         if (newSale.paymentMethod === 'installment' && newSale.customerId && newSale.installmentDetails) {
             const { downPayment, numberOfInstallments, interestRate } = newSale.installmentDetails;
             const financedAmount = newSale.totalAmount - downPayment;
             const totalRepayment = financedAmount * (1 + interestRate / 100);
             const installmentAmount = totalRepayment / numberOfInstallments;
-            
             const payments: InstallmentPayment[] = [];
             for (let i = 1; i <= numberOfInstallments; i++) {
                 const dueDate = new Date(newSale.date);
                 dueDate.setMonth(dueDate.getMonth() + i);
-                payments.push({
-                    id: `INST-${invoiceId}-${i}`,
-                    dueDate: dueDate.toISOString(),
-                    amountDue: installmentAmount,
-                    paidAmount: 0,
-                    paymentDate: null,
-                    status: 'due'
-                });
+                payments.push({ id: `INST-${invoiceId}-${i}`, dueDate: dueDate.toISOString(), amountDue: installmentAmount, paidAmount: 0, paymentDate: null, status: 'due' });
             }
+            newInstallmentPlan = { id: `PLAN-${invoiceId}`, sourceId: invoiceId, sourceType: 'sale', customerId: newSale.customerId, totalFinancedAmount: financedAmount, totalRepaymentAmount: totalRepayment, interestRate, numberOfInstallments, installmentAmount, startDate: newSale.date, payments };
+        }
 
-            newInstallmentPlan = {
-                id: `PLAN-${invoiceId}`,
-                sourceId: invoiceId,
-                sourceType: 'sale',
-                customerId: newSale.customerId,
-                totalFinancedAmount: financedAmount,
-                totalRepaymentAmount: totalRepayment,
-                interestRate,
-                numberOfInstallments,
-                installmentAmount,
-                startDate: newSale.date,
-                payments
-            };
+        // Determine Notifications
+        const notificationsToAdd: SystemNotification[] = [];
+        
+        // 1. New Invoice Notification
+        notificationsToAdd.push({
+            id: `NOTIF-INV-${invoiceId}`,
+            type: 'invoice',
+            title: 'فاتورة جديدة',
+            message: `تم تسجيل فاتورة بيع بقيمة ${newSale.totalAmount.toLocaleString()} ج.م`,
+            timestamp: new Date().toISOString(),
+            read: false,
+            priority: 'low'
+        });
+
+        // 2. Low Stock Check
+        const soldQty = currentStore.sales.filter(s => s.productId === newSale.productId).reduce((acc, s) => acc + s.quantity, 0) + newSale.quantity;
+        const currentQty = (product?.initialQuantity || 0) - soldQty; // Simplified check, ideally needs refined logic with adjustments
+        if (currentQty <= 3) {
+             notificationsToAdd.push({
+                id: `NOTIF-STOCK-${product?.id}-${Date.now()}`,
+                type: 'stock',
+                title: 'تنبيه نقص مخزون',
+                message: `كمية المنتج "${product?.name}" انخفضت إلى ${currentQty}. يرجى إعادة الطلب.`,
+                timestamp: new Date().toISOString(),
+                read: false,
+                priority: 'high'
+            });
         }
 
         updateStoreData(currentStore.id, (store) => {
             const updatedCustomers = store.customers.map(c => {
                 if (c.id === newSale.customerId) {
-                     // Add points
                     const pointsEarned = Math.floor(newSale.totalAmount / LOYALTY_RATE);
-                    // Add debt transaction if not fully paid (and not installment plan tracked separately)
                     let newTransactions = c.transactions;
                     if (newSale.remainingBalance > 0 && newSale.paymentMethod !== 'installment') {
-                        newTransactions = [...c.transactions, {
-                            id: `TRN-${Date.now()}`,
-                            date: newSale.date,
-                            type: 'debt',
-                            amount: newSale.remainingBalance,
-                            description: `متبقي فاتورة #${invoiceId}`
-                        }];
+                        newTransactions = [...c.transactions, { id: `TRN-${Date.now()}`, date: newSale.date, type: 'debt', amount: newSale.remainingBalance, description: `متبقي فاتورة #${invoiceId}` }];
                     }
                     return { ...c, loyaltyPoints: c.loyaltyPoints + pointsEarned, transactions: newTransactions };
                 }
                 return c;
             });
-
             return {
                 ...store,
                 sales: [...store.sales, newSale],
                 invoices: [...store.invoices, newInvoice],
                 inventoryMovements: [...store.inventoryMovements, newMovement],
                 installmentPlans: newInstallmentPlan ? [...store.installmentPlans, newInstallmentPlan] : store.installmentPlans,
-                customers: updatedCustomers
+                customers: updatedCustomers,
+                notifications: [...notificationsToAdd, ...(store.notifications || [])]
             };
         });
         logActivity(`إضافة عملية بيع جديدة #${invoiceId}`);
@@ -367,28 +387,7 @@ const App: React.FC = () => {
         if (!currentStore) return;
         const orderId = `SRV-${Date.now()}`;
         const newService: Service = { ...serviceData, orderId };
-
-         // Create Auto Invoice for Service
-        const newInvoice: Invoice = {
-            id: orderId, // Use orderId as invoice ID for services
-            sourceId: orderId,
-            sourceType: 'service',
-            date: newService.date,
-            customerName: currentStore.customers.find(c => c.id === newService.customerId)?.name || 'عميل عام',
-            items: [{
-                description: newService.description,
-                quantity: 1,
-                unitPrice: newService.revenue,
-                total: newService.revenue
-            }],
-            subtotal: newService.revenue,
-            taxRate: newService.taxRate,
-            taxAmount: newService.taxAmount,
-            total: newService.totalAmount,
-            amountPaid: newService.amountPaid,
-            remainingBalance: newService.remainingBalance
-        };
-
+        const newInvoice: Invoice = { id: orderId, sourceId: orderId, sourceType: 'service', date: newService.date, customerName: currentStore.customers.find(c => c.id === newService.customerId)?.name || 'عميل عام', items: [{ description: newService.description, quantity: 1, unitPrice: newService.revenue, total: newService.revenue }], subtotal: newService.revenue, taxRate: newService.taxRate, taxAmount: newService.taxAmount, total: newService.totalAmount, amountPaid: newService.amountPaid, remainingBalance: newService.remainingBalance };
         let newInstallmentPlan: InstallmentPlan | null = null;
         if (newService.paymentMethod === 'installment' && newService.customerId && newService.installmentDetails) {
              const { downPayment, numberOfInstallments, interestRate } = newService.installmentDetails;
@@ -404,75 +403,69 @@ const App: React.FC = () => {
             newInstallmentPlan = { id: `PLAN-${orderId}`, sourceId: orderId, sourceType: 'service', customerId: newService.customerId, totalFinancedAmount: financedAmount, totalRepaymentAmount: totalRepayment, interestRate, numberOfInstallments, installmentAmount, startDate: newService.date, payments };
         }
 
+        const newNotification: SystemNotification = {
+            id: `NOTIF-SRV-${orderId}`,
+            type: 'service',
+            title: 'طلب خدمة جديد',
+            message: `تم استلام طلب خدمة: ${newService.description}`,
+            timestamp: new Date().toISOString(),
+            read: false,
+            priority: 'medium'
+        };
+
         updateStoreData(currentStore.id, store => ({
             ...store,
             services: [...store.services, newService],
             invoices: [...store.invoices, newInvoice],
-            installmentPlans: newInstallmentPlan ? [...store.installmentPlans, newInstallmentPlan] : store.installmentPlans
+            installmentPlans: newInstallmentPlan ? [...store.installmentPlans, newInstallmentPlan] : store.installmentPlans,
+            notifications: [newNotification, ...(store.notifications || [])]
         }));
         logActivity(`إضافة خدمة صيانة #${orderId}`);
     }, [currentStore, updateStoreData, logActivity]);
 
-    const addPurchaseReturn = useCallback((pr: Omit<PurchaseReturn, 'id'|'date'>) => {
+    const addPurchaseReturn = useCallback((pr: Omit<PurchaseReturn, 'id'|'date'|'status'>) => {
         if (!currentStore) return;
-        const newPR: PurchaseReturn = { ...pr, id: `PR-${Date.now()}`, date: new Date().toISOString() };
-        
-        // Inventory Movement (Return to Supplier = OUT = Negative Quantity relative to stock)
-        const newMovement: InventoryMovement = {
-            id: `MOV-RET-${Date.now()}`,
-            date: newPR.date,
-            productId: newPR.productId,
-            type: 'purchase_return',
-            quantity: -newPR.quantity, 
-            notes: `مرتجع شراء للمورد: ${newPR.reason}`
-        };
-
-        updateStoreData(currentStore.id, store => ({
-            ...store,
-            purchaseReturns: [...store.purchaseReturns, newPR],
-            inventoryMovements: [...store.inventoryMovements, newMovement]
-        }));
+        const newPR: PurchaseReturn = { ...pr, id: `PR-${Date.now()}`, date: new Date().toISOString(), status: 'pending' };
+        const newMovement: InventoryMovement = { id: `MOV-RET-${Date.now()}`, date: newPR.date, productId: newPR.productId, type: 'purchase_return', quantity: -newPR.quantity, notes: `مرتجع شراء للمورد: ${newPR.reason}` };
+        updateStoreData(currentStore.id, store => ({ ...store, purchaseReturns: [...store.purchaseReturns, newPR], inventoryMovements: [...store.inventoryMovements, newMovement] }));
         logActivity(`تسجيل مرتجع شراء للمنتج ${newPR.productId}`);
     }, [currentStore, updateStoreData, logActivity]);
 
-    const addSaleReturn = useCallback((sr: Omit<SaleReturn, 'id' | 'date'>) => {
+    const addSaleReturn = useCallback((sr: Omit<SaleReturn, 'id' | 'date' | 'status'>) => {
         if (!currentStore) return;
-        const newReturn = { ...sr, id: `SR-${Date.now()}`, date: new Date().toISOString() };
-        
-        // Inventory Movement: Sale Return = IN (positive quantity) - Returning items to stock
-        const newMovement: InventoryMovement = {
-            id: `MOV-RET-SALE-${Date.now()}`,
-            date: newReturn.date,
-            productId: newReturn.productId,
-            type: 'sale_return',
-            quantity: newReturn.quantity, // Positive to add back to inventory
-            referenceId: newReturn.originalSaleInvoiceId,
-            notes: `مرتجع مبيعات: ${newReturn.reason}`
-        };
+        const newReturn = { ...sr, id: `SR-${Date.now()}`, date: new Date().toISOString(), status: 'pending' as ReturnStatus };
+        const newMovement: InventoryMovement = { id: `MOV-RET-SALE-${Date.now()}`, date: newReturn.date, productId: newReturn.productId, type: 'sale_return', quantity: newReturn.quantity, referenceId: newReturn.originalSaleInvoiceId, notes: `مرتجع مبيعات: ${newReturn.reason}` };
+        updateStoreData(currentStore.id, store => ({ ...store, saleReturns: [...store.saleReturns, newReturn], inventoryMovements: [...store.inventoryMovements, newMovement] }));
+        logActivity('مرتجع مبيعات');
+    }, [currentStore, updateStoreData, logActivity]);
 
+    const updateSaleReturnStatus = useCallback((id: string, status: ReturnStatus) => {
+        if (!currentStore) return;
         updateStoreData(currentStore.id, store => ({
             ...store,
-            saleReturns: [...store.saleReturns, newReturn],
-            inventoryMovements: [...store.inventoryMovements, newMovement]
+            saleReturns: store.saleReturns.map(r => r.id === id ? { ...r, status } : r)
         }));
-        logActivity('مرتجع مبيعات');
+        logActivity(`تحديث حالة مرتجع مبيعات #${id} إلى ${status}`);
+    }, [currentStore, updateStoreData, logActivity]);
+  
+    const updatePurchaseReturnStatus = useCallback((id: string, status: ReturnStatus) => {
+        if (!currentStore) return;
+        updateStoreData(currentStore.id, store => ({
+            ...store,
+            purchaseReturns: store.purchaseReturns.map(r => r.id === id ? { ...r, status } : r)
+        }));
+        logActivity(`تحديث حالة مرتجع مشتريات #${id} إلى ${status}`);
     }, [currentStore, updateStoreData, logActivity]);
 
     const addInstallmentPayment = useCallback((planId: string, paymentId: string, amount: number) => {
         if (!currentStore) return;
-        
         updateStoreData(currentStore.id, s => {
             const updatedPlans = s.installmentPlans.map(p => {
                 if (p.id === planId) {
                     const updatedPayments = p.payments.map(pay => {
                         if (pay.id === paymentId) {
                             const isPaid = amount >= pay.amountDue;
-                            return {
-                                ...pay,
-                                paidAmount: amount,
-                                paymentDate: new Date().toISOString(),
-                                status: (isPaid ? 'paid' : 'due') as 'due' | 'paid' | 'overdue'
-                            };
+                            return { ...pay, paidAmount: amount, paymentDate: new Date().toISOString(), status: (isPaid ? 'paid' : 'due') as 'due' | 'paid' | 'overdue' };
                         }
                         return pay;
                     });
@@ -485,7 +478,80 @@ const App: React.FC = () => {
         logActivity(`تسجيل دفعة قسط للخطة #${planId}`);
     }, [currentStore, updateStoreData, logActivity]);
 
-    // --- View Rendering ---
+    const addExpense = useCallback((expenseData: Omit<Expense, 'id'>) => {
+        if(!currentStore) return;
+        const newExpense = { ...expenseData, id: `EXP-${Date.now()}` };
+        const notificationsToAdd: SystemNotification[] = [];
+        
+        // High Expense Alert (Threshold e.g., 2000)
+        if (newExpense.amount >= 2000) {
+             notificationsToAdd.push({
+                id: `NOTIF-EXP-${newExpense.id}`,
+                type: 'expense',
+                title: 'مصروف مرتفع',
+                message: `تم تسجيل مصروف بقيمة ${newExpense.amount.toLocaleString()} ج.م (${newExpense.description}).`,
+                timestamp: new Date().toISOString(),
+                read: false,
+                priority: 'medium'
+            });
+        }
+
+        updateStoreData(currentStore.id, s => ({ 
+            ...s, 
+            expenses: [...s.expenses, newExpense],
+            notifications: [...notificationsToAdd, ...(s.notifications || [])]
+        }));
+        logActivity('إضافة مصروف');
+    }, [currentStore, updateStoreData, logActivity]);
+
+    const addTicket = useCallback((ticket: Omit<SupportTicket, 'id' | 'createdAt' | 'updatedAt' | 'messages'>) => {
+        if (!currentStore || !currentUser) return;
+        const newTicket: SupportTicket = {
+            ...ticket,
+            id: `TKT-${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            messages: [],
+        };
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            supportTickets: [...(s.supportTickets || []), newTicket]
+        }));
+        logActivity(`إنشاء بلاغ جديد: ${ticket.title}`);
+    }, [currentStore, currentUser, updateStoreData, logActivity]);
+
+    const updateTicketStatus = useCallback((ticketId: string, status: TicketStatus, assigneeId?: string) => {
+        if (!currentStore) return;
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            supportTickets: (s.supportTickets || []).map(t => t.id === ticketId ? { ...t, status, assignedTo: assigneeId || t.assignedTo, updatedAt: new Date().toISOString() } : t)
+        }));
+        logActivity(`تحديث حالة البلاغ #${ticketId}`);
+    }, [currentStore, updateStoreData, logActivity]);
+
+    const assignTicket = useCallback((ticketId: string, employeeId: string) => {
+        if (!currentStore) return;
+        updateStoreData(currentStore.id, s => ({
+             ...s,
+             supportTickets: (s.supportTickets || []).map(t => t.id === ticketId ? { ...t, assignedTo: employeeId, updatedAt: new Date().toISOString() } : t)
+        }));
+        logActivity(`تخصيص البلاغ #${ticketId} للموظف ${employeeId}`);
+    }, [currentStore, updateStoreData, logActivity]);
+
+    const addTicketMessage = useCallback((ticketId: string, message: Omit<TicketMessage, 'id' | 'timestamp'>) => {
+        if (!currentStore) return;
+        const newMessage: TicketMessage = {
+            ...message,
+            id: `MSG-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+        };
+        updateStoreData(currentStore.id, s => ({
+            ...s,
+            supportTickets: (s.supportTickets || []).map(t => t.id === ticketId ? { ...t, messages: [...t.messages, newMessage], updatedAt: new Date().toISOString() } : t)
+        }));
+    }, [currentStore, updateStoreData]);
+
+
     const renderContent = () => {
         if (isSuperAdminLoggedIn) {
              return <SuperAdminDashboard stores={stores} setStores={setStores} onLogout={() => setIsSuperAdminLoggedIn(false)} aiSettings={aiSettings} onUpdateAISettings={async (newSettings) => { setAiSettings(newSettings); await saveAISettings(newSettings); }} marketplaceModules={marketplaceModules} onUpdateMarketplaceModule={async (mod) => { const newModules = marketplaceModules.map(m => m.id === mod.id ? mod : m); setMarketplaceModules(newModules); await saveMarketplaceSettings(newModules); }} />;
@@ -509,12 +575,12 @@ const App: React.FC = () => {
             case 'inventory': return <Inventory products={currentStore.products.map(p => { const sold = currentStore.sales.filter(s => s.productId === p.id).reduce((sum, s) => sum + s.quantity, 0); const returned = currentStore.purchaseReturns.filter(pr => pr.productId === p.id).reduce((sum, r) => sum + r.quantity, 0); const salesReturned = currentStore.saleReturns.filter(sr => sr.productId === p.id).reduce((sum, r) => sum + r.quantity, 0); return { ...p, quantitySold: sold, quantityAvailable: p.initialQuantity - sold - returned + salesReturned }; })} addProduct={(p) => { updateStoreData(currentStore.id, s => ({...s, products: [...s.products, {...p, id: `P-${Date.now()}`}]})); logActivity(`إضافة منتج: ${p.name}`); }} suppliers={currentStore.suppliers} logActivity={logActivity} inventoryMovements={currentStore.inventoryMovements} />;
             case 'pos': return <POS store={currentStore} products={currentStore.products.map(p => { const sold = currentStore.sales.filter(s => s.productId === p.id).reduce((sum, s) => sum + s.quantity, 0); const returned = currentStore.purchaseReturns.filter(pr => pr.productId === p.id).reduce((sum, r) => sum + r.quantity, 0); const salesReturned = currentStore.saleReturns.filter(sr => sr.productId === p.id).reduce((sum, r) => sum + r.quantity, 0); return { ...p, quantityAvailable: p.initialQuantity - sold - returned + salesReturned }; })} addSale={addSale} sales={currentStore.sales} customers={currentStore.customers} addCustomer={(c) => { const newC = { ...c, id: `CUST-${Date.now()}`, joinDate: new Date().toISOString(), loyaltyPoints: 0, transactions: [] }; updateStoreData(currentStore.id, s => ({...s, customers: [...s.customers, newC]})); return newC; }} createTaxInvoice={() => {}} saleReturns={currentStore.saleReturns} addSaleReturn={addSaleReturn} logActivity={logActivity} taxRate={currentStore.billingSettings.taxRate} invoices={currentStore.invoices} />;
             case 'invoicing': return <InvoicingModule store={currentStore} addQuotation={(q) => { updateStoreData(currentStore.id, s => ({...s, quotations: [...s.quotations, {...q, id: `QT-${Date.now()}`, date: new Date().toISOString(), status: 'pending'}]})); }} updateQuotationStatus={(id, st) => updateStoreData(currentStore.id, s => ({...s, quotations: s.quotations.map(q => q.id === id ? {...q, status: st} : q)}))} convertQuotationToInvoice={(id) => { const q = currentStore.quotations.find(q => q.id === id); if(q) { q.items.forEach(i => addSale({ date: new Date().toISOString(), productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, customerId: q.customerId, paymentMethod: 'cash', subtotal: i.quantity * i.unitPrice, taxRate: currentStore.billingSettings.taxRate, taxAmount: (i.quantity * i.unitPrice * currentStore.billingSettings.taxRate)/100, totalAmount: (i.quantity * i.unitPrice * (1 + currentStore.billingSettings.taxRate/100)), amountPaid: (i.quantity * i.unitPrice * (1 + currentStore.billingSettings.taxRate/100)), remainingBalance: 0, isFullyPaid: true, quotationId: q.id })); updateStoreData(currentStore.id, s => ({...s, quotations: s.quotations.map(q => q.id === id ? {...q, status: 'invoiced'} : q)})); } }} />;
-            case 'returns-refunds': return <ReturnsRefunds store={currentStore} addPurchaseReturn={addPurchaseReturn} logActivity={logActivity} />;
+            case 'returns-refunds': return <ReturnsRefunds store={currentStore} addPurchaseReturn={addPurchaseReturn} logActivity={logActivity} updateSaleReturnStatus={updateSaleReturnStatus} updatePurchaseReturnStatus={updatePurchaseReturnStatus} />;
             case 'customer-management': return <CustomerManagement customers={currentStore.customers} sales={currentStore.sales} products={currentStore.products} addCustomer={(c) => { const newC = { ...c, id: `CUST-${Date.now()}`, joinDate: new Date().toISOString(), loyaltyPoints: 0, transactions: [] }; updateStoreData(currentStore.id, s => ({...s, customers: [...s.customers, newC]})); return newC; }} updateCustomer={(c) => updateStoreData(currentStore.id, s => ({...s, customers: s.customers.map(cust => cust.id === c.id ? c : cust)}))} deleteCustomer={(id) => updateStoreData(currentStore.id, s => ({...s, customers: s.customers.filter(c => c.id !== id)}))} addCustomerTransaction={(cid, t) => updateStoreData(currentStore.id, s => ({...s, customers: s.customers.map(c => c.id === cid ? {...c, transactions: [...c.transactions, {...t, id: `TRN-${Date.now()}`, date: new Date().toISOString()}]} : c)}))} logActivity={logActivity} />;
             case 'suppliers-management': return <SuppliersManagement suppliers={currentStore.suppliers} products={currentStore.products} sales={currentStore.sales} purchaseOrders={currentStore.purchaseOrders} purchaseReturns={currentStore.purchaseReturns} addSupplier={(sup) => { updateStoreData(currentStore.id, s => ({...s, suppliers: [...s.suppliers, {...sup, id: `SUP-${Date.now()}`}]})); logActivity(`إضافة مورد: ${sup.name}`); }} updateSupplier={(sup) => updateStoreData(currentStore.id, s => ({...s, suppliers: s.suppliers.map(su => su.id === sup.id ? sup : su)}))} addPurchaseOrder={(po) => updateStoreData(currentStore.id, s => ({...s, purchaseOrders: [...s.purchaseOrders, {...po, id: `PO-${Date.now()}`, payments: [], status: 'pending'}]}))} addPurchaseOrderPayment={(poid, pay) => updateStoreData(currentStore.id, s => ({...s, purchaseOrders: s.purchaseOrders.map(po => po.id === poid ? {...po, payments: [...po.payments, {...pay, id: `PAY-${Date.now()}`}]} : po)}))} updatePurchaseOrderStatus={(id, st) => updateStoreData(currentStore.id, s => ({...s, purchaseOrders: s.purchaseOrders.map(po => po.id === id ? {...po, status: st} : po)}))} logActivity={logActivity} />;
             case 'services': return <ServiceLog services={currentStore.services} addService={addService} createTaxInvoice={() => {}} logActivity={logActivity} customers={currentStore.customers} taxRate={currentStore.billingSettings.taxRate} invoices={currentStore.invoices} />;
             case 'installments': return <Installments store={currentStore} addInstallmentPayment={addInstallmentPayment} />;
-            case 'expenses': return <Expenses expenses={currentStore.expenses} addExpense={(e) => { updateStoreData(currentStore.id, s => ({ ...s, expenses: [...s.expenses, { ...e, id: `EXP-${Date.now()}` }] })); logActivity('إضافة مصروف'); }} logActivity={logActivity} />;
+            case 'expenses': return <Expenses expenses={currentStore.expenses} addExpense={addExpense} logActivity={logActivity} />;
             case 'financial-reports': return <FinancialDashboard store={currentStore} />;
             case 'general-reports': return <GeneralReports products={currentStore.products} sales={currentStore.sales} services={currentStore.services} expenses={currentStore.expenses} aiSettings={aiSettings} />;
             case 'hr-management': return <HRManagement store={currentStore} employees={currentStore.employees} roles={currentStore.roles} attendance={currentStore.attendance} payrolls={currentStore.payrolls} leaves={currentStore.leaves} advances={currentStore.advances} allModules={marketplaceModules} logActivity={logActivity} addEmployee={(e) => updateStoreData(currentStore.id, s => ({...s, employees: [...s.employees, {...e, id: `EMP-${Date.now()}`}]}))} updateEmployee={(e) => updateStoreData(currentStore.id, s => ({...s, employees: s.employees.map(emp => emp.id === e.id ? e : emp)}))} deleteEmployee={(id) => updateStoreData(currentStore.id, s => ({...s, employees: s.employees.filter(e => e.id !== id)}))} addRole={(r) => updateStoreData(currentStore.id, s => ({...s, roles: [...s.roles, {...r, id: `ROLE-${Date.now()}`}]}))} updateRole={(r) => updateStoreData(currentStore.id, s => ({...s, roles: s.roles.map(ro => ro.id === r.id ? r : ro)}))} deleteRole={(id) => updateStoreData(currentStore.id, s => ({...s, roles: s.roles.filter(r => r.id !== id)}))} addOrUpdateDailyAttendance={(d, recs) => updateStoreData(currentStore.id, s => ({...s, attendance: [...s.attendance.filter(a => a.date !== d), ...recs.map(r => ({...r, id: `ATT-${d}-${r.employeeId}`, date: d, deductionAmount: r.deductionAmount || 0, notes: r.notes || ''}))]}))} generatePayrolls={() => { /* Simplified generation logic */ alert("تم توليد الرواتب (محاكاة)"); }} updatePayroll={() => {}} markPayrollAsPaid={(pid) => updateStoreData(currentStore.id, s => ({...s, payrolls: s.payrolls.map(p => p.id === pid ? {...p, status: 'paid', paymentDate: new Date().toISOString()} : p)}))} addLeaveRequest={(l) => updateStoreData(currentStore.id, s => ({...s, leaves: [...s.leaves, {...l, id: `LEAVE-${Date.now()}`, status: 'pending'}]}))} updateLeaveRequestStatus={(lid, st) => updateStoreData(currentStore.id, s => ({...s, leaves: s.leaves.map(l => l.id === lid ? {...l, status: st} : l)}))} addAdvance={(a) => updateStoreData(currentStore.id, s => ({...s, advances: [...s.advances, {...a, id: `ADV-${Date.now()}`, status: 'unpaid'}]}))} updateHRSettings={(newSettings) => updateStoreData(currentStore.id, s => ({...s, hrSettings: newSettings}))} />;
@@ -522,6 +588,29 @@ const App: React.FC = () => {
             case 'ai-assistant': return <AIMessages messages={currentStore.aiMessages} markAllAsRead={() => updateStoreData(currentStore.id, s => ({...s, aiMessages: s.aiMessages.map(m => ({...m, read: true}))}))} />;
             case 'user-guide': return <UserGuide enabledModules={currentStore.enabledModules} />;
             case 'marketplace': return <ModuleMarketplace availableModules={marketplaceModules} userStore={currentStore} onEnableModule={(mid) => { updateStoreData(currentStore.id, s => ({...s, enabledModules: [...s.enabledModules, mid]})); logActivity(`تفعيل مديول: ${mid}`); }} />;
+            
+            case 'support-ticketing': return (
+                <SupportTicketing 
+                    store={currentStore}
+                    currentUser={currentUser}
+                    tickets={currentStore.supportTickets || []} 
+                    addTicket={addTicket}
+                    updateTicketStatus={updateTicketStatus}
+                    assignTicket={assignTicket}
+                    addTicketMessage={addTicketMessage}
+                    employees={currentStore.employees}
+                />
+            );
+
+            case 'notifications-center': return (
+                <NotificationsCenter 
+                    notifications={currentStore.notifications || []} 
+                    markAsRead={(id) => updateStoreData(currentStore.id, s => ({...s, notifications: s.notifications.map(n => n.id === id ? {...n, read: true} : n)}))}
+                    markAllAsRead={() => updateStoreData(currentStore.id, s => ({...s, notifications: s.notifications.map(n => ({...n, read: true}))}))}
+                    deleteNotification={(id) => updateStoreData(currentStore.id, s => ({...s, notifications: s.notifications.filter(n => n.id !== id)}))}
+                />
+            );
+
             default: return <div>Page not found</div>;
         }
     };
@@ -550,6 +639,7 @@ const App: React.FC = () => {
             onLogout={() => { setCurrentUser(null); setCurrentStore(null); setIsSuperAdminLoggedIn(false); }}
             navItems={INITIAL_MODULES.filter(m => currentStore.enabledModules.includes(m.id))}
             unreadMessagesCount={currentStore.aiMessages.filter(m => !m.read).length}
+            unreadNotificationsCount={currentStore.notifications?.filter(n => !n.read).length || 0}
         />
       )}
       <main className="flex-1 p-6 overflow-y-auto">

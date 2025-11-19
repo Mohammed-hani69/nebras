@@ -1,12 +1,15 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Store, PurchaseReturn, ReturnReason } from '../types';
+import type { Store, PurchaseReturn, ReturnReason, ReturnStatus } from '../types';
 import { ArrowPathRoundedSquareIcon } from './icons/Icons';
 
 interface ReturnsRefundsProps {
   store: Store;
-  addPurchaseReturn: (pr: Omit<PurchaseReturn, 'id' | 'date'>) => void;
+  addPurchaseReturn: (pr: Omit<PurchaseReturn, 'id' | 'date' | 'status'>) => void;
   logActivity: (action: string) => void;
+  updateSaleReturnStatus: (id: string, status: ReturnStatus) => void;
+  updatePurchaseReturnStatus: (id: string, status: ReturnStatus) => void;
 }
 
 const returnReasonLabels: Record<ReturnReason, string> = {
@@ -16,7 +19,15 @@ const returnReasonLabels: Record<ReturnReason, string> = {
     other: 'أخرى'
 };
 
-const ReturnsRefunds: React.FC<ReturnsRefundsProps> = ({ store, addPurchaseReturn, logActivity }) => {
+const statusLabels: Record<ReturnStatus, string> = {
+    pending: 'قيد الانتظار',
+    received: 'تم الاستلام',
+    processed: 'تمت المعالجة',
+    refunded: 'تم الاسترداد',
+    rejected: 'مرفوض'
+};
+
+const ReturnsRefunds: React.FC<ReturnsRefundsProps> = ({ store, addPurchaseReturn, logActivity, updateSaleReturnStatus, updatePurchaseReturnStatus }) => {
     const [activeTab, setActiveTab] = useState('salesReturns');
     const [showPRForm, setShowPRForm] = useState(false);
     const [prFormData, setPrFormData] = useState({
@@ -89,6 +100,17 @@ const ReturnsRefunds: React.FC<ReturnsRefundsProps> = ({ store, addPurchaseRetur
         return Object.entries(stats).map(([reason, count]) => ({ reason: returnReasonLabels[reason as ReturnReason], count }));
     }, [store.saleReturns]);
 
+    const getStatusBadge = (status: ReturnStatus) => {
+        const colors = {
+            pending: 'bg-yellow-100 text-yellow-800',
+            received: 'bg-blue-100 text-blue-800',
+            processed: 'bg-purple-100 text-purple-800',
+            refunded: 'bg-green-100 text-green-800',
+            rejected: 'bg-red-100 text-red-800',
+        };
+        return <span className={`px-2 py-1 rounded text-xs font-semibold ${colors[status || 'pending']}`}>{statusLabels[status || 'pending']}</span>;
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center space-x-3">
@@ -107,7 +129,7 @@ const ReturnsRefunds: React.FC<ReturnsRefundsProps> = ({ store, addPurchaseRetur
                      <h2 className="text-xl font-bold mb-4 text-gray-800 border-b pb-2">سجل مرتجعات المبيعات</h2>
                      <div className="overflow-x-auto">
                         <table className="w-full text-right text-sm">
-                            <thead className="bg-gray-50"><tr className="border-b"><th className="p-3">#</th><th className="p-3">التاريخ</th><th className="p-3">المنتج</th><th className="p-3">العميل</th><th className="p-3">الكمية</th><th className="p-3">المبلغ</th><th className="p-3">السبب</th></tr></thead>
+                            <thead className="bg-gray-50"><tr className="border-b"><th className="p-3">#</th><th className="p-3">التاريخ</th><th className="p-3">المنتج</th><th className="p-3">العميل</th><th className="p-3">الكمية</th><th className="p-3">المبلغ</th><th className="p-3">السبب</th><th className="p-3">الحالة</th><th className="p-3">تحديث الحالة</th></tr></thead>
                             <tbody>
                                 {store.saleReturns.map(ret => (
                                     <tr key={ret.id} className="border-b hover:bg-gray-50 transition-colors">
@@ -118,9 +140,21 @@ const ReturnsRefunds: React.FC<ReturnsRefundsProps> = ({ store, addPurchaseRetur
                                         <td className="p-3 font-bold">{ret.quantity}</td>
                                         <td className="p-3 text-red-600 font-semibold">{ret.amountReturned.toLocaleString()} ج.م</td>
                                         <td className="p-3"><span className="bg-gray-100 px-2 py-1 rounded text-xs">{returnReasonLabels[ret.reason]}</span></td>
+                                        <td className="p-3">{getStatusBadge(ret.status)}</td>
+                                        <td className="p-3">
+                                            <select 
+                                                value={ret.status || 'pending'} 
+                                                onChange={(e) => updateSaleReturnStatus(ret.id, e.target.value as ReturnStatus)}
+                                                className="p-1 border rounded text-xs bg-white focus:ring-1 focus:ring-indigo-500"
+                                            >
+                                                {Object.entries(statusLabels).map(([key, label]) => (
+                                                    <option key={key} value={key}>{label}</option>
+                                                ))}
+                                            </select>
+                                        </td>
                                     </tr>
                                 ))}
-                                {store.saleReturns.length === 0 && <tr><td colSpan={7} className="text-center p-8 text-gray-500">لا توجد مرتجعات مبيعات مسجلة.</td></tr>}
+                                {store.saleReturns.length === 0 && <tr><td colSpan={9} className="text-center p-8 text-gray-500">لا توجد مرتجعات مبيعات مسجلة.</td></tr>}
                             </tbody>
                         </table>
                      </div>
@@ -135,7 +169,7 @@ const ReturnsRefunds: React.FC<ReturnsRefundsProps> = ({ store, addPurchaseRetur
                         <h2 className="text-xl font-bold mb-4 text-gray-800 border-b pb-2">سجل مرتجعات المشتريات</h2>
                         <div className="overflow-x-auto">
                             <table className="w-full text-right text-sm">
-                            <thead className="bg-gray-50"><tr className="border-b"><th className="p-3">التاريخ</th><th className="p-3">المورد</th><th className="p-3">المنتج</th><th className="p-3">الكمية</th><th className="p-3">المبلغ</th><th className="p-3">السبب</th></tr></thead>
+                            <thead className="bg-gray-50"><tr className="border-b"><th className="p-3">التاريخ</th><th className="p-3">المورد</th><th className="p-3">المنتج</th><th className="p-3">الكمية</th><th className="p-3">المبلغ</th><th className="p-3">السبب</th><th className="p-3">الحالة</th><th className="p-3">تحديث الحالة</th></tr></thead>
                                 <tbody>
                                     {store.purchaseReturns.map(ret => (
                                         <tr key={ret.id} className="border-b hover:bg-gray-50 transition-colors">
@@ -145,9 +179,21 @@ const ReturnsRefunds: React.FC<ReturnsRefundsProps> = ({ store, addPurchaseRetur
                                             <td className="p-3 font-bold">{ret.quantity}</td>
                                             <td className="p-3 text-green-600 font-semibold">{ret.amountRefunded.toLocaleString()} ج.م</td>
                                             <td className="p-3"><span className="bg-gray-100 px-2 py-1 rounded text-xs">{returnReasonLabels[ret.reason]}</span></td>
+                                            <td className="p-3">{getStatusBadge(ret.status)}</td>
+                                            <td className="p-3">
+                                                <select 
+                                                    value={ret.status || 'pending'} 
+                                                    onChange={(e) => updatePurchaseReturnStatus(ret.id, e.target.value as ReturnStatus)}
+                                                    className="p-1 border rounded text-xs bg-white focus:ring-1 focus:ring-indigo-500"
+                                                >
+                                                    {Object.entries(statusLabels).map(([key, label]) => (
+                                                        <option key={key} value={key}>{label}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
                                         </tr>
                                     ))}
-                                    {store.purchaseReturns.length === 0 && <tr><td colSpan={6} className="text-center p-8 text-gray-500">لا توجد مرتجعات مشتريات مسجلة.</td></tr>}
+                                    {store.purchaseReturns.length === 0 && <tr><td colSpan={8} className="text-center p-8 text-gray-500">لا توجد مرتجعات مشتريات مسجلة.</td></tr>}
                                 </tbody>
                             </table>
                         </div>

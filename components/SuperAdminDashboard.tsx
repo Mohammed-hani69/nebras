@@ -1,13 +1,20 @@
 
 
+
+
+
+
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings } from '../types';
 import SuperAdminSidebar from './SuperAdminSidebar';
 import SuperAdminProfit from './SuperAdminProfit';
 import SuperAdminAnalysis from './SuperAdminAnalysis';
 import SuperAdminAISettings from './SuperAdminAISettings';
-import SuperAdminMarketplace from './SuperAdminMarketplace'; // Import new component
-import { DocumentDownloadIcon, BellIcon, ExclamationTriangleIcon } from './icons/Icons';
+import SuperAdminMarketplace from './SuperAdminMarketplace';
+import { DocumentDownloadIcon, BellIcon, ExclamationTriangleIcon, PaperAirplaneIcon, SparklesIcon } from './icons/Icons';
+import { generateNotificationMessage } from '../services/geminiService';
 
 interface SuperAdminDashboardProps {
   stores: Store[];
@@ -43,6 +50,13 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
     const [formData, setFormData] = useState(INITIAL_FORM_STATE);
     const [showNotifications, setShowNotifications] = useState(false);
     
+    // Broadcast State
+    const [broadcastTopic, setBroadcastTopic] = useState('');
+    const [broadcastTone, setBroadcastTone] = useState('رسمي ومهذب');
+    const [broadcastMessage, setBroadcastMessage] = useState('');
+    const [isGeneratingMsg, setIsGeneratingMsg] = useState(false);
+    const [selectedStoreId, setSelectedStoreId] = useState('all');
+
     const notifications = useMemo(() => {
         const today = new Date();
         const alerts = [];
@@ -132,6 +146,47 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
         setIsEditing(null);
         setShowForm(false);
     };
+    
+    const handleGenerateMessage = async () => {
+        if (!broadcastTopic) return alert('الرجاء إدخال موضوع الرسالة.');
+        setIsGeneratingMsg(true);
+        try {
+            const msg = await generateNotificationMessage(broadcastTopic, broadcastTone, aiSettings);
+            setBroadcastMessage(msg);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsGeneratingMsg(false);
+        }
+    };
+
+    const handleSendBroadcast = () => {
+        if (!broadcastMessage) return alert('لا توجد رسالة لإرسالها.');
+        
+        setStores(prev => prev.map(store => {
+            if (selectedStoreId !== 'all' && store.id !== selectedStoreId) return store;
+            
+            const newNotification = {
+                id: `SYS-MSG-${Date.now()}-${Math.random()}`,
+                type: 'system' as const,
+                title: 'تنبيه من الإدارة',
+                message: broadcastMessage,
+                timestamp: new Date().toISOString(),
+                read: false,
+                priority: 'high' as const
+            };
+            
+            return {
+                ...store,
+                notifications: [newNotification, ...(store.notifications || [])]
+            };
+        }));
+        
+        alert('تم إرسال الإشعار بنجاح.');
+        setBroadcastTopic('');
+        setBroadcastMessage('');
+    };
+
 
     const handleModuleChange = (moduleId: string) => {
         setFormData(prev => {
@@ -237,7 +292,6 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                 purchaseReturns: [],
                 activityLogs: [],
                 installmentPlans: [],
-// FIX: Initialize missing required property 'quotations' with an empty array.
                 quotations: [],
                 attendance: [],
                 payrolls: [],
@@ -248,6 +302,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                     absenceDeductionMethod: 'daily_rate',
                     officialCheckInTime: '09:00',
                 },
+                notifications: [], // Initialize notifications
+                supportTickets: [], // Initialize support tickets
             };
             setStores(prev => [...prev, newStore]);
         }
@@ -342,6 +398,71 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
 
     const renderManagementView = () => (
         <div className="space-y-8">
+            {/* Broadcast Section */}
+            <div className="bg-indigo-50 border-2 border-indigo-200 p-6 rounded-xl shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                     <h3 className="text-lg font-bold text-indigo-800 flex items-center gap-2">
+                        <BellIcon /> إرسال تنبيه عام (Broadcast)
+                     </h3>
+                     <div className="flex items-center gap-2">
+                         <label className="text-sm font-medium">إلى:</label>
+                         <select 
+                            value={selectedStoreId} 
+                            onChange={e => setSelectedStoreId(e.target.value)}
+                            className="p-2 border rounded-lg text-sm"
+                        >
+                             <option value="all">جميع المتاجر</option>
+                             {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                         </select>
+                     </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="md:col-span-2">
+                        <input 
+                            type="text" 
+                            value={broadcastTopic} 
+                            onChange={e => setBroadcastTopic(e.target.value)}
+                            placeholder="موضوع الرسالة (مثلاً: خصم خاص على التجديد، تنبيه صيانة...)" 
+                            className="w-full p-2 border rounded-lg"
+                        />
+                    </div>
+                    <div>
+                        <select 
+                            value={broadcastTone} 
+                            onChange={e => setBroadcastTone(e.target.value)}
+                            className="w-full p-2 border rounded-lg"
+                        >
+                            <option value="رسمي ومهذب">رسمي ومهذب</option>
+                            <option value="عاجل وتحذيري">عاجل وتحذيري</option>
+                            <option value="ودي وتسويقي">ودي وتسويقي</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div className="relative mb-4">
+                     <textarea 
+                        value={broadcastMessage} 
+                        onChange={e => setBroadcastMessage(e.target.value)}
+                        placeholder="نص الرسالة (يمكنك كتابته يدوياً أو توليده بالذكاء الاصطناعي)..."
+                        className="w-full p-3 border rounded-lg h-24"
+                     />
+                     <button 
+                        onClick={handleGenerateMessage}
+                        disabled={isGeneratingMsg}
+                        className="absolute top-2 left-2 text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md hover:bg-indigo-200 flex items-center gap-1"
+                     >
+                        <SparklesIcon /> {isGeneratingMsg ? 'جاري التوليد...' : 'صياغة بالذكاء الاصطناعي'}
+                     </button>
+                </div>
+                
+                <button 
+                    onClick={handleSendBroadcast}
+                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 font-bold flex items-center gap-2"
+                >
+                    <PaperAirplaneIcon /> إرسال الآن
+                </button>
+            </div>
+
             <div className="flex justify-between items-center flex-wrap gap-4">
                 <h2 className="text-3xl font-bold text-gray-800">قائمة المتاجر</h2>
                  <div className="flex items-center gap-4">
