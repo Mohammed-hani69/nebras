@@ -1,6 +1,8 @@
 
+
+
 import React, { useState } from 'react';
-import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon } from './icons/Icons';
+import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, DocumentDuplicateIcon, ArrowPathRoundedSquareIcon } from './icons/Icons';
 
 interface UserWithPermissions {
   id: string;
@@ -22,19 +24,23 @@ const ICONS: { [key: string]: React.ReactNode } = {
     'dashboard': <ChartBarIcon />,
     'inventory': <CubeIcon />,
     'pos': <ShoppingCartIcon />,
+    'invoicing': <DocumentDuplicateIcon />,
     'services': <WrenchScrewdriverIcon />,
     'expenses': <BanknotesIcon />,
     'financial-reports': <PresentationChartLineIcon />,
     'general-reports': <DocumentChartBarIcon />,
-    'user-management': <UsersIcon />,
+    'hr-management': <BriefcaseIcon />,
     'customer-management': <IdentificationIcon />,
     'suppliers-management': <TruckIcon />,
     'ai-assistant': <BrainIcon />,
     'user-guide': <QuestionMarkCircleIcon />,
+    'installments': <CalendarDaysIcon />,
+    'activity-log': <ClipboardListIcon />,
+    'returns-refunds': <ArrowPathRoundedSquareIcon />,
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLogout, navItems, unreadMessagesCount }) => {
-  const [openSections, setOpenSections] = useState<string[]>(['main']);
+  const [openSections, setOpenSections] = useState<string[]>(['main', 'finance', 'management']);
 
   const toggleSection = (sectionId: string) => {
     setOpenSections(prev => 
@@ -45,9 +51,9 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLo
   };
 
   const sections = [
-    { id: 'main', title: 'رئيسي', items: navItems.filter(item => ['dashboard', 'inventory', 'pos'].includes(item.id)) },
-    { id: 'management', title: 'الإدارة', items: navItems.filter(item => ['customer-management', 'suppliers-management', 'user-management'].includes(item.id)) },
-    { id: 'finance', title: 'المالية والتقارير', items: navItems.filter(item => ['expenses', 'services', 'financial-reports', 'general-reports'].includes(item.id)) },
+    { id: 'main', title: 'رئيسي', items: navItems.filter(item => ['dashboard', 'inventory', 'pos', 'services'].includes(item.id)) },
+    { id: 'management', title: 'الإدارة', items: navItems.filter(item => ['customer-management', 'suppliers-management', 'hr-management', 'activity-log'].includes(item.id)) },
+    { id: 'finance', title: 'المالية والتقارير', items: navItems.filter(item => ['invoicing', 'expenses', 'installments', 'returns-refunds', 'financial-reports', 'general-reports'].includes(item.id)) },
     { id: 'system', title: 'النظام', items: navItems.filter(item => ['ai-assistant', 'user-guide'].includes(item.id)) },
   ].filter(section => section.items.length > 0);
 

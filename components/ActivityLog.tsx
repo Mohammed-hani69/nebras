@@ -1,18 +1,19 @@
+
 import React, { useState, useMemo } from 'react';
-import type { ActivityLog, User } from '../types';
+import type { ActivityLog, Employee } from '../types';
 
 interface ActivityLogProps {
     logs: ActivityLog[];
-    users: User[];
+    employees: Employee[];
 }
 
-const ActivityLogComponent: React.FC<ActivityLogProps> = ({ logs, users }) => {
+const ActivityLogComponent: React.FC<ActivityLogProps> = ({ logs, employees }) => {
     const [filterUser, setFilterUser] = useState<string>('');
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
 
     const filteredLogs = useMemo(() => {
-        let filtered = logs;
+        let filtered = logs || [];
 
         if (filterUser) {
             filtered = filtered.filter(log => log.userId === filterUser);
@@ -46,9 +47,9 @@ const ActivityLogComponent: React.FC<ActivityLogProps> = ({ logs, users }) => {
                 <div className="flex items-center gap-4 flex-wrap">
                     <label className="font-medium">فلترة حسب:</label>
                     <select value={filterUser} onChange={e => setFilterUser(e.target.value)} className="p-2 border rounded-lg bg-gray-50">
-                        <option value="">كل المستخدمين</option>
-                        {users.map(user => (
-                            <option key={user.id} value={user.id}>{user.username}</option>
+                        <option value="">كل الموظفين</option>
+                        {(employees || []).map(employee => (
+                            <option key={employee.id} value={employee.id}>{employee.fullName} ({employee.username})</option>
                         ))}
                     </select>
                     <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="p-2 border rounded-lg" />

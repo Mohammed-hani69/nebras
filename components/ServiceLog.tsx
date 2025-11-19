@@ -1,17 +1,22 @@
 
-import React, { useState, useEffect } from 'react';
-import type { Service, PaymentMethod, Customer } from '../types';
+
+import React, { useState, useEffect, useMemo } from 'react';
+// FIX: Add Invoice to type imports
+import type { Service, PaymentMethod, Customer, Invoice } from '../types';
 
 interface ServiceLogProps {
   services: Service[];
-  addService: (service: Omit<Service, 'orderId' | 'taxInfo'>) => void;
+// FIX: Update addService prop to remove non-existent 'taxInfo' from Omit.
+  addService: (service: Omit<Service, 'orderId'>) => void;
   createTaxInvoice: (sourceId: string, sourceType: 'service') => void;
   logActivity: (action: string) => void;
   customers: Customer[];
   taxRate: number;
+  // FIX: Add invoices prop to check for existing tax invoices.
+  invoices: Invoice[];
 }
 
-const ServiceLog: React.FC<ServiceLogProps> = ({ services, addService, createTaxInvoice, logActivity, customers, taxRate }) => {
+const ServiceLog: React.FC<ServiceLogProps> = ({ services, addService, createTaxInvoice, logActivity, customers, taxRate, invoices }) => {
   const [description, setDescription] = useState('');
   const [revenue, setRevenue] = useState(0); // Acts as subtotal
   const [partsCost, setPartsCost] = useState(0);
@@ -19,17 +24,36 @@ const ServiceLog: React.FC<ServiceLogProps> = ({ services, addService, createTax
   const [customerId, setCustomerId] = useState<string>('');
   
   const [amountPaid, setAmountPaid] = useState<number>(0);
+  const [installmentConfig, setInstallmentConfig] = useState({
+    downPayment: 0,
+    numberOfInstallments: 3,
+    interestRate: 10,
+  });
+
 
   // Calculations
   const subtotal = revenue;
   const taxAmount = subtotal * (taxRate / 100);
   const totalWithTax = subtotal + taxAmount;
-  const remainingBalance = Math.max(0, totalWithTax - amountPaid);
 
-  // Reset amount paid to total when revenue changes (default to full payment)
+  const { remainingBalance, installmentAmount, totalRepayment } = useMemo(() => {
+    if (paymentMethod === 'installment') {
+        const financedAmount = totalWithTax - installmentConfig.downPayment;
+        const totalRepayment = financedAmount * (1 + (installmentConfig.interestRate / 100));
+        const installmentAmount = installmentConfig.numberOfInstallments > 0 ? totalRepayment / installmentConfig.numberOfInstallments : 0;
+        return { remainingBalance: financedAmount, installmentAmount, totalRepayment };
+    }
+    const remBal = Math.max(0, totalWithTax - amountPaid);
+    return { remainingBalance: remBal, installmentAmount: 0, totalRepayment: 0 };
+  }, [paymentMethod, totalWithTax, amountPaid, installmentConfig]);
+
   useEffect(() => {
-      setAmountPaid(totalWithTax);
-  }, [revenue, taxRate]);
+      if (paymentMethod !== 'installment') {
+        setAmountPaid(totalWithTax);
+      } else {
+        setAmountPaid(0); // Down payment will be handled separately
+      }
+  }, [revenue, taxRate, paymentMethod, totalWithTax]);
 
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -38,22 +62,31 @@ const ServiceLog: React.FC<ServiceLogProps> = ({ services, addService, createTax
       alert('الرجاء إدخال وصف للخدمة وإيراد صحيح.');
       return;
     }
+    if (paymentMethod === 'installment' && !customerId) {
+        alert('يجب اختيار عميل مسجل لتفعيل خيار التقسيط.');
+        return;
+    }
+
+    const servicePayload: Omit<Service, 'orderId'> = {
+        date: new Date().toISOString(),
+        description,
+        revenue,
+        partsCost,
+        paymentMethod,
+        customerId: customerId || null,
+        taxRate,
+        taxAmount,
+        totalAmount: totalWithTax,
+        amountPaid: paymentMethod === 'installment' ? installmentConfig.downPayment : amountPaid,
+        remainingBalance,
+        isFullyPaid: remainingBalance <= 0.01,
+    };
     
-    addService({
-      date: new Date().toISOString(),
-      description,
-      revenue,
-      partsCost,
-      paymentMethod,
-      customerId: customerId || null,
-      // Tax and Debt logic
-      taxRate: taxRate,
-      taxAmount: taxAmount,
-      totalAmount: totalWithTax,
-      amountPaid: amountPaid,
-      remainingBalance: remainingBalance,
-      isFullyPaid: remainingBalance <= 0.01
-    });
+    if (paymentMethod === 'installment') {
+        servicePayload.installmentDetails = installmentConfig;
+    }
+
+    addService(servicePayload);
     
     // Reset form
     setDescription('');
@@ -62,6 +95,7 @@ const ServiceLog: React.FC<ServiceLogProps> = ({ services, addService, createTax
     setPaymentMethod('cash');
     setCustomerId('');
     setAmountPaid(0);
+    setInstallmentConfig({ downPayment: 0, numberOfInstallments: 3, interestRate: 10 });
   };
 
   const sortedServices = [...services].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -135,10 +169,10 @@ const ServiceLog: React.FC<ServiceLogProps> = ({ services, addService, createTax
                     <option value="cash">نقدي</option>
                     <option value="card">بطاقة</option>
                     <option value="bank_transfer">تحويل بنكي</option>
+                    <option value="installment">تقسيط</option>
                 </select>
             </div>
 
-             {/* Financial Breakdown Section */}
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
                  <div className="flex justify-between text-gray-600 text-sm">
                      <span>تكلفة الخدمة (قبل الضريبة):</span>
@@ -153,29 +187,35 @@ const ServiceLog: React.FC<ServiceLogProps> = ({ services, addService, createTax
                      <span>{totalWithTax.toLocaleString()} ج.م</span>
                  </div>
                  
-                 <div className="grid grid-cols-2 gap-4 pt-2">
-                     <div>
-                         <label className="block text-xs font-medium text-gray-700 mb-1">المبلغ المدفوع</label>
-                         <input 
-                            type="number" 
-                            value={amountPaid} 
-                            onChange={e => setAmountPaid(parseFloat(e.target.value) || 0)} 
-                            className="w-full p-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                         />
-                     </div>
-                     <div className="bg-white p-2 rounded border border-gray-300 flex flex-col justify-center items-center">
-                         <span className="text-xs text-gray-500">المتبقي (دين)</span>
-                         <span className={`font-bold ${remainingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                             {remainingBalance.toLocaleString()} ج.م
-                         </span>
-                     </div>
-                 </div>
-                 {!customerId && remainingBalance > 0 && (
-                     <p className="text-xs text-red-500 text-center">تنبيه: يجب اختيار عميل لتسجيل الدين.</p>
+                {paymentMethod === 'installment' ? (
+                    <div className="pt-2 border-t border-gray-300 space-y-3">
+                        <div className="grid grid-cols-3 gap-2">
+                            <div><label className="text-xs">الدفعة المقدمة</label><input type="number" value={installmentConfig.downPayment} onChange={e => setInstallmentConfig({...installmentConfig, downPayment: parseFloat(e.target.value) || 0})} className="w-full p-1 border rounded"/></div>
+                            <div><label className="text-xs">عدد الأقساط</label><input type="number" value={installmentConfig.numberOfInstallments} onChange={e => setInstallmentConfig({...installmentConfig, numberOfInstallments: parseInt(e.target.value) || 1})} className="w-full p-1 border rounded" min="1"/></div>
+                            <div><label className="text-xs">الفائدة (%)</label><input type="number" value={installmentConfig.interestRate} onChange={e => setInstallmentConfig({...installmentConfig, interestRate: parseFloat(e.target.value) || 0})} className="w-full p-1 border rounded"/></div>
+                        </div>
+                        <div className="bg-white p-2 rounded border border-indigo-200 text-center">
+                            <p className="text-sm">قيمة القسط: <span className="font-bold text-indigo-700">{installmentAmount.toLocaleString('ar-EG', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ج.م / شهرياً</span></p>
+                        </div>
+                    </div>
+                 ) : (
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">المبلغ المدفوع</label>
+                            <input type="number" value={amountPaid} onChange={e => setAmountPaid(parseFloat(e.target.value) || 0)} className="w-full p-2 border border-blue-300 rounded-lg"/>
+                        </div>
+                        <div className="bg-white p-2 rounded border border-gray-300 flex flex-col justify-center items-center">
+                            <span className="text-xs text-gray-500">المتبقي (دين)</span>
+                            <span className={`font-bold ${remainingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>{remainingBalance.toLocaleString()} ج.م</span>
+                        </div>
+                    </div>
+                 )}
+                 {!customerId && (paymentMethod === 'installment' || remainingBalance > 0) && (
+                     <p className="text-xs text-red-500 text-center">تنبيه: يجب اختيار عميل لتسجيل الدين أو التقسيط.</p>
                  )}
             </div>
           
-          <button type="submit" disabled={!customerId && remainingBalance > 0} className="w-full bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-600 transition font-bold text-lg disabled:bg-gray-400 disabled:cursor-not-allowed">
+          <button type="submit" disabled={!customerId && (remainingBalance > 0 || paymentMethod === 'installment')} className="w-full bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-600 transition font-bold text-lg disabled:bg-gray-400 disabled:cursor-not-allowed">
             تسجيل الخدمة
           </button>
         </form>
@@ -199,10 +239,11 @@ const ServiceLog: React.FC<ServiceLogProps> = ({ services, addService, createTax
             </thead>
             <tbody>
               {sortedServices.map(service => {
-                // Use stored values if available (new records), fallback to old logic
                 const displayTotal = service.totalAmount !== undefined ? service.totalAmount : service.revenue;
                 const displayPaid = service.amountPaid !== undefined ? service.amountPaid : displayTotal;
                 const displayDebt = service.remainingBalance !== undefined ? service.remainingBalance : 0;
+// FIX: Check for an existing tax invoice in the `invoices` array instead of the non-existent `taxInfo` property.
+                const taxInvoice = invoices.find(inv => inv.sourceType === 'service' && inv.sourceId === service.orderId);
 
                 return (
                   <tr key={service.orderId} className="border-b border-gray-100 hover:bg-gray-50">
@@ -218,10 +259,10 @@ const ServiceLog: React.FC<ServiceLogProps> = ({ services, addService, createTax
                      <td className="p-3">
                         <button 
                             onClick={() => createTaxInvoice(service.orderId, 'service')}
-                            disabled={!!service.taxInfo}
+                            disabled={!!taxInvoice}
                             className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-md hover:bg-blue-200 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
                         >
-                            {service.taxInfo ? `ضريبية ${service.taxInfo.invoiceNumber}` : 'فاتورة ضريبية'}
+                            {taxInvoice ? `ضريبية ${taxInvoice.id}` : 'فاتورة ضريبية'}
                         </button>
                     </td>
                   </tr>

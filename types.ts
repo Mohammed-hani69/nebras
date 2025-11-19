@@ -1,7 +1,14 @@
 
-export type PaymentMethod = 'cash' | 'card' | 'bank_transfer';
+export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'installment';
 export type MovementType = 'sale' | 'purchase' | 'sale_return' | 'purchase_return' | 'initial' | 'adjustment';
 export type ReturnReason = 'defective' | 'wrong_item' | 'customer_dissatisfaction' | 'other';
+
+export type LeaveRequestType = 'annual' | 'sick' | 'unpaid' | 'other';
+export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected';
+export type AdvanceStatus = 'unpaid' | 'paid';
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'on_leave';
+export type QuotationStatus = 'pending' | 'approved' | 'rejected' | 'invoiced';
+
 
 export interface Product {
   id: string;
@@ -42,11 +49,6 @@ export interface Customer {
   transactions: CustomerTransaction[];
 }
 
-export interface TaxInfo {
-    invoiceNumber: string;
-    date: string;
-}
-
 export interface Sale {
   invoiceId: string;
   date: string; // ISO string format
@@ -56,14 +58,19 @@ export interface Sale {
   customerId: string | null;
   paymentMethod: PaymentMethod;
   // Extended properties for POS logic
-  subtotal?: number;
-  taxRate?: number;
-  taxAmount?: number;
-  totalAmount?: number;
-  amountPaid?: number;
-  remainingBalance?: number;
-  isFullyPaid?: boolean;
-  taxInfo?: TaxInfo;
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  totalAmount: number;
+  amountPaid: number;
+  remainingBalance: number;
+  isFullyPaid: boolean;
+  quotationId?: string; // Link to the original quotation
+  installmentDetails?: {
+      downPayment: number;
+      numberOfInstallments: number;
+      interestRate: number; // as percentage
+  };
 }
 
 export interface Service {
@@ -75,13 +82,18 @@ export interface Service {
   paymentMethod: PaymentMethod;
   customerId?: string | null;
   // Extended properties
-  taxRate?: number;
-  taxAmount?: number;
-  totalAmount?: number;
-  amountPaid?: number;
-  remainingBalance?: number;
-  isFullyPaid?: boolean;
-  taxInfo?: TaxInfo;
+  taxRate: number;
+  taxAmount: number;
+  totalAmount: number;
+  amountPaid: number;
+  remainingBalance: number;
+  isFullyPaid: boolean;
+  quotationId?: string; // Link to the original quotation
+  installmentDetails?: {
+      downPayment: number;
+      numberOfInstallments: number;
+      interestRate: number; // as percentage
+  };
 }
 
 export interface Expense {
@@ -98,12 +110,69 @@ export interface CustomRole {
   permissions: string[];
 }
 
-export interface User {
+export interface Employee {
   id: string;
   username: string;
   password: string; // NOTE: In a real-world app, this should be hashed.
   roleId: string;
+  // New comprehensive fields
+  fullName: string;
+  identityNumber?: string;
+  address?: string;
+  phone: string;
+  hireDate: string; // ISO String
+  baseSalary: number;
 }
+
+export interface AttendanceRecord {
+    id: string;
+    employeeId: string;
+    date: string; // YYYY-MM-DD format
+    status: AttendanceStatus;
+    deductionAmount: number;
+    notes: string;
+}
+
+export interface LeaveRequest {
+    id: string;
+    employeeId: string;
+    leaveType: LeaveRequestType;
+    startDate: string; // ISO String date only
+    endDate: string; // ISO String date only
+    reason: string;
+    status: LeaveRequestStatus;
+}
+
+export interface Advance {
+    id: string;
+    employeeId: string;
+    amount: number;
+    date: string; // ISO String
+    notes?: string;
+    status: AdvanceStatus;
+    payrollId?: string; // ID of the payroll this was deducted from
+}
+
+export interface PayrollDeduction {
+    type: 'advance' | 'absence' | 'lateness' | 'other';
+    amount: number;
+    description: string;
+    referenceId?: string; // advanceId or attendanceId
+}
+
+export interface Payroll {
+    id: string;
+    employeeId: string;
+    monthYear: string; // Format: "YYYY-MM"
+    baseSalary: number;
+    bonuses: number;
+    deductionDetails: PayrollDeduction[];
+    totalDeductions: number;
+    netSalary: number;
+    status: 'pending' | 'paid';
+    paymentDate?: string; // ISO String
+}
+
 
 export interface Payment {
   date: string; // ISO string format
@@ -177,17 +246,42 @@ export interface BillingSettings {
     phone: string;
 }
 
+export interface InvoiceItem {
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+}
+
 export interface Invoice {
-    id: string;
-    date: string;
+    id: string; // Unique tax invoice number
+    sourceId: string; // Sale.invoiceId or Service.orderId
+    sourceType: 'sale' | 'service';
+    date: string; // ISO string
     customerName: string;
-    items: { description: string, quantity: number, unitPrice: number, total: number }[];
+    items: InvoiceItem[];
     subtotal: number;
     taxRate: number;
     taxAmount: number;
     total: number;
     amountPaid: number;
     remainingBalance: number;
+}
+
+export interface Quotation {
+    id: string;
+    date: string;
+    customerId: string | null;
+    items: {
+        productId: string;
+        quantity: number;
+        unitPrice: number;
+    }[];
+    subtotal: number;
+    taxAmount: number;
+    total: number;
+    status: QuotationStatus;
+    validUntil: string; // ISO String
 }
 
 export interface AISettings {
@@ -221,6 +315,36 @@ export interface ModuleDefinition {
     isCore?: boolean; // If true, cannot be disabled/sold separately
 }
 
+export interface InstallmentPayment {
+    id: string;
+    dueDate: string; // ISO String
+    amountDue: number;
+    paidAmount: number;
+    paymentDate: string | null; // ISO string if paid
+    status: 'due' | 'paid' | 'overdue';
+}
+
+export interface InstallmentPlan {
+    id: string;
+    sourceId: string; // Sale or Service ID
+    sourceType: 'sale' | 'service';
+    customerId: string;
+    totalFinancedAmount: number;
+    totalRepaymentAmount: number;
+    interestRate: number;
+    numberOfInstallments: number;
+    installmentAmount: number;
+    startDate: string; // ISO String
+    payments: InstallmentPayment[];
+}
+
+export interface HRSettings {
+    workingDays: ('Sunday' | 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday')[];
+    officialCheckInTime: string; // "HH:MM" format, e.g., "09:00"
+    absenceDeductionMethod: 'daily_rate' | 'manual';
+}
+
+
 export interface Store {
   id: string;
   name: string;
@@ -239,7 +363,7 @@ export interface Store {
   sales: Sale[];
   services: Service[];
   expenses: Expense[];
-  users: User[];
+  employees: Employee[];
   roles: CustomRole[];
   paymentHistory: Payment[];
   aiMessages: AIMessage[];
@@ -250,4 +374,11 @@ export interface Store {
   saleReturns: SaleReturn[];
   purchaseReturns: PurchaseReturn[];
   activityLogs: ActivityLog[];
+  installmentPlans: InstallmentPlan[];
+  quotations: Quotation[];
+  attendance: AttendanceRecord[];
+  payrolls: Payroll[];
+  leaves: LeaveRequest[];
+  advances: Advance[];
+  hrSettings: HRSettings;
 }

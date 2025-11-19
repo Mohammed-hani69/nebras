@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Store, User, PurchaseOrder, AISettings, CustomRole, ModuleDefinition } from '../types';
+import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings } from '../types';
 import SuperAdminSidebar from './SuperAdminSidebar';
 import SuperAdminProfit from './SuperAdminProfit';
 import SuperAdminAnalysis from './SuperAdminAnalysis';
@@ -28,6 +29,8 @@ const INITIAL_FORM_STATE = {
     subscriptionMonthlyPrice: 0,
     storeType: '',
     enabledModules: [] as string[],
+    adminFullName: '',
+    adminPhone: '',
     adminUsername: '',
     adminPassword: '',
     aiInstructions: '',
@@ -101,6 +104,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
 
     useEffect(() => {
         if (isEditing) {
+            const adminUser = isEditing.employees.find(u => u.roleId === 'admin');
             setFormData({
                 name: isEditing.name,
                 ownerName: isEditing.ownerName,
@@ -111,8 +115,10 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                 subscriptionMonthlyPrice: isEditing.subscriptionMonthlyPrice,
                 storeType: isEditing.storeType,
                 enabledModules: isEditing.enabledModules,
-                adminUsername: isEditing.users.find(u => u.roleId === 'admin')?.username || '',
-                adminPassword: '', // Don't pre-fill password for security
+                adminUsername: adminUser?.username || '',
+                adminPassword: '', // Don't pre-fill password
+                adminFullName: adminUser?.fullName || '',
+                adminPhone: adminUser?.phone || '',
                 aiInstructions: isEditing.aiInstructions || '',
             });
             setShowForm(true);
@@ -146,7 +152,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
         e.preventDefault();
         const requiredFields = ['name', 'ownerName', 'subscriptionStartDate', 'subscriptionEndDate', 'ownerPhone', 'ownerEmail', 'storeType'];
         if (!isEditing) {
-            requiredFields.push('adminUsername', 'adminPassword');
+            requiredFields.push('adminUsername', 'adminPassword', 'adminFullName', 'adminPhone');
         }
 
         if (requiredFields.some(field => !formData[field as keyof typeof formData])) {
@@ -160,10 +166,17 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
         if (isEditing) {
             setStores(prevStores => prevStores.map(store => {
                 if (store.id === isEditing.id) {
-                    const adminUser = store.users.find(u => u.roleId === 'admin');
-                    if(adminUser && formData.adminPassword) {
-                        adminUser.password = formData.adminPassword;
-                    }
+                    const updatedEmployees = store.employees.map(emp => {
+                        if (emp.roleId === 'admin') {
+                            return {
+                                ...emp,
+                                password: formData.adminPassword ? formData.adminPassword : emp.password,
+                                fullName: formData.adminFullName,
+                                phone: formData.adminPhone,
+                            };
+                        }
+                        return emp;
+                    });
                     return {
                         ...store,
                         name: formData.name,
@@ -176,16 +189,21 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                         storeType: formData.storeType,
                         enabledModules: formData.enabledModules,
                         aiInstructions: formData.aiInstructions,
+                        employees: updatedEmployees,
                     };
                 }
                 return store;
             }));
         } else {
-            const newStoreAdmin: User = { 
+            const newStoreAdmin: Employee = { 
                 id: 'u001', 
                 username: formData.adminUsername, 
                 password: formData.adminPassword, 
                 roleId: 'admin',
+                fullName: formData.adminFullName,
+                phone: formData.adminPhone,
+                hireDate: new Date().toISOString(),
+                baseSalary: 0,
             };
 
             const defaultRoles: CustomRole[] = [
@@ -207,7 +225,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                 enabledModules: formData.enabledModules.length > 0 ? formData.enabledModules : marketplaceModules.filter(m => m.isCore).map(m => m.id),
                 products: [], sales: [], services: [], expenses: [], customers: [],
                 suppliers: [], purchaseOrders: [],
-                users: [newStoreAdmin],
+                employees: [newStoreAdmin],
                 roles: defaultRoles,
                 paymentHistory: [],
                 aiMessages: [],
@@ -218,6 +236,18 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                 saleReturns: [],
                 purchaseReturns: [],
                 activityLogs: [],
+                installmentPlans: [],
+// FIX: Initialize missing required property 'quotations' with an empty array.
+                quotations: [],
+                attendance: [],
+                payrolls: [],
+                leaves: [],
+                advances: [],
+                hrSettings: {
+                    workingDays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
+                    absenceDeductionMethod: 'daily_rate',
+                    officialCheckInTime: '09:00',
+                },
             };
             setStores(prev => [...prev, newStore]);
         }
@@ -351,8 +381,10 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
 
                         <h4 className="font-semibold text-gray-700 border-b pb-2">بيانات حساب المدير</h4>
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                             <input type="text" name="adminFullName" value={formData.adminFullName} onChange={handleChange} placeholder="الاسم الكامل للمدير" className="p-2 border rounded" required />
+                             <input type="text" name="adminPhone" value={formData.adminPhone} onChange={handleChange} placeholder="هاتف المدير" className="p-2 border rounded" required />
                              <input type="text" name="adminUsername" value={formData.adminUsername} onChange={handleChange} placeholder="اسم مستخدم المدير" className="p-2 border rounded" required disabled={!!isEditing} />
-                            <input type="password" name="adminPassword" value={formData.adminPassword} onChange={handleChange} placeholder={isEditing ? 'كلمة مرور جديدة (اختياري)' : 'كلمة المرور'} className="p-2 border rounded" required={!isEditing} />
+                             <input type="password" name="adminPassword" value={formData.adminPassword} onChange={handleChange} placeholder={isEditing ? 'كلمة مرور جديدة (اختياري)' : 'كلمة المرور'} className="p-2 border rounded" required={!isEditing} />
                          </div>
 
                          <h4 className="font-semibold text-gray-700 border-b pb-2">إعدادات الذكاء الاصطناعي</h4>

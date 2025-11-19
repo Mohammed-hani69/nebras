@@ -1,7 +1,9 @@
+
 import React, { useMemo, useState } from 'react';
 import type { Product, Sale, Service, Expense, AISettings } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import Card from './Card';
+import ProgressBar from './ProgressBar';
 import { getAiGeneralReportAnalysis } from '../services/geminiService';
 import { BrainIcon, PaperAirplaneIcon } from './icons/Icons';
 
@@ -178,17 +180,25 @@ const GeneralReports: React.FC<GeneralReportsProps> = ({ products, sales, servic
               <span className="mr-2">تحليل بالذكاء الاصطناعي</span>
             </h3>
             <p className="text-gray-600 mb-4">احصل على رؤى وتحليلات عميقة للبيانات المعروضة حاليًا بناءً على الفلاتر التي اخترتها.</p>
-            <button
-                onClick={handleAiAnalysis}
-                className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 transition font-bold"
-                disabled={isLoadingAi}
-              >
-                {isLoadingAi ? 'جاري التحليل...' : 'تحليل البيانات الحالية'}
-            </button>
-            {isLoadingAi && <p className="mt-4 text-gray-600 animate-pulse">يفكر المساعد الذكي في بياناتك...</p>}
-            {aiAnalysis && (
-              <div className="mt-4 p-4 bg-gray-50 border-r-4 border-indigo-500 rounded-lg">
-                <div className="prose prose-sm max-w-none text-gray-800 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: aiAnalysis.replace(/\n/g, '<br />') }} />
+            
+            {!isLoadingAi ? (
+              <button
+                  onClick={handleAiAnalysis}
+                  className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 transition font-bold"
+                  disabled={isLoadingAi}
+                >
+                  تحليل البيانات الحالية
+              </button>
+            ) : (
+              <div className="mt-4 max-w-md">
+                  <ProgressBar indeterminate label="جاري تحليل البيانات..." />
+                  <p className="text-xs text-gray-500 mt-2 animate-pulse">قد يستغرق هذا بضع ثوانٍ...</p>
+              </div>
+            )}
+
+            {aiAnalysis && !isLoadingAi && (
+              <div className="mt-6 p-6 bg-gradient-to-br from-gray-50 to-indigo-50 border-r-4 border-indigo-500 rounded-lg animate-fade-in-up">
+                <div className="prose prose-sm max-w-none text-gray-800 whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: aiAnalysis.replace(/\n/g, '<br />') }} />
               </div>
             )}
         </div>

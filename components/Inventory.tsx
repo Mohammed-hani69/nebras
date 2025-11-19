@@ -74,7 +74,9 @@ const Inventory: React.FC<InventoryProps> = ({ products, addProduct, suppliers, 
   };
 
   const ProductHistoryModal = () => {
-      if (!viewingHistoryFor) return null;
+      if (!viewingHistoryFor) {
+          return null;
+      }
       
       const product = products.find(p => p.id === viewingHistoryFor);
       const history = inventoryMovements

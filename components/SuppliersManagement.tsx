@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
-import type { Supplier, PurchaseOrder, Product, Sale, PaymentMethod } from '../types';
+import type { Supplier, PurchaseOrder, Product, Sale, PaymentMethod, PurchaseReturn } from '../types';
 
 interface SuppliersManagementProps {
     suppliers: Supplier[];
     products: Product[];
     sales: Sale[];
     purchaseOrders: PurchaseOrder[];
+    purchaseReturns: PurchaseReturn[];
     addSupplier: (supplier: Omit<Supplier, 'id'>) => void;
     updateSupplier: (supplier: Supplier) => void;
     addPurchaseOrder: (po: Omit<PurchaseOrder, 'id' | 'payments' | 'status'>) => void;
@@ -15,7 +16,7 @@ interface SuppliersManagementProps {
     logActivity: (action: string) => void;
 }
 
-const SuppliersManagement: React.FC<SuppliersManagementProps> = ({ suppliers, products, sales, purchaseOrders, addSupplier, updateSupplier, addPurchaseOrder, addPurchaseOrderPayment, updatePurchaseOrderStatus, logActivity }) => {
+const SuppliersManagement: React.FC<SuppliersManagementProps> = ({ suppliers, products, sales, purchaseOrders, purchaseReturns, addSupplier, updateSupplier, addPurchaseOrder, addPurchaseOrderPayment, updatePurchaseOrderStatus, logActivity }) => {
     const [activeTab, setActiveTab] = useState('suppliers');
     const [showSupplierForm, setShowSupplierForm] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -30,7 +31,6 @@ const SuppliersManagement: React.FC<SuppliersManagementProps> = ({ suppliers, pr
 
     const [selectedReportSupplier, setSelectedReportSupplier] = useState<string>('');
 
-    // Handlers for Suppliers
     const handleOpenSupplierForm = (supplier: Supplier | null = null) => {
         setEditingSupplier(supplier);
         setSupplierFormData(supplier || { name: '', contactPerson: '', phone: '', email: '', address: '' });
@@ -46,7 +46,6 @@ const SuppliersManagement: React.FC<SuppliersManagementProps> = ({ suppliers, pr
         setShowSupplierForm(false);
     };
 
-    // Handlers for Purchase Orders
     const handleOpenPOForm = () => setShowPOForm(true);
     const handlePOItemChange = (index: number, field: string, value: string | number) => {
         const newItems = [...poFormData.items];
@@ -74,7 +73,6 @@ const SuppliersManagement: React.FC<SuppliersManagementProps> = ({ suppliers, pr
         }
     };
     
-    // Handlers for Payments
     const handleAddPayment = () => {
         if (paymentModalData && paymentAmount > 0) {
             addPurchaseOrderPayment(paymentModalData.poId, { amount: paymentAmount, date: new Date().toISOString(), paymentMethod });
@@ -84,7 +82,6 @@ const SuppliersManagement: React.FC<SuppliersManagementProps> = ({ suppliers, pr
         }
     };
     
-    // Data for Supplier Profit Report
     const supplierProfitData = useMemo(() => {
         if (!selectedReportSupplier) return null;
         const supplierProducts = products.filter(p => p.supplierId === selectedReportSupplier);
@@ -121,18 +118,22 @@ const SuppliersManagement: React.FC<SuppliersManagementProps> = ({ suppliers, pr
                     <button onClick={() => handleOpenSupplierForm()} className="bg-indigo-600 text-white px-4 py-2 rounded-lg">إضافة مورد</button>
                     <div className="bg-white p-4 rounded-xl shadow-lg">
                         <table className="w-full text-right">
-                            <thead><tr className="border-b"><th className="p-2">الاسم</th><th className="p-2">الهاتف</th><th className="p-2">الرصيد</th><th className="p-2">إجراءات</th></tr></thead>
+                            <thead><tr className="border-b"><th className="p-2">الاسم</th><th className="p-2">الهاتف</th><th className="p-2">الرصيد (له/عليه)</th><th className="p-2">إجراءات</th></tr></thead>
                             <tbody>
                                 {suppliers.map(s => {
                                      const supplierPOs = purchaseOrders.filter(po => po.supplierId === s.id);
+                                     const supplierReturns = purchaseReturns.filter(pr => pr.supplierId === s.id);
+
                                      const totalDebt = supplierPOs.reduce((sum, po) => sum + po.items.reduce((itemSum, item) => itemSum + item.quantity * item.costPrice, 0), 0);
                                      const totalPaid = supplierPOs.reduce((sum, po) => sum + po.payments.reduce((paySum, p) => paySum + p.amount, 0), 0);
-                                     const balance = totalDebt - totalPaid;
+                                     const totalReturnsValue = supplierReturns.reduce((sum, r) => sum + r.amountRefunded, 0);
+                                     
+                                     const balance = totalDebt - totalPaid - totalReturnsValue;
                                     return (
                                         <tr key={s.id} className="border-b hover:bg-gray-50">
                                             <td className="p-2 font-medium">{s.name}</td>
                                             <td className="p-2">{s.phone}</td>
-                                            <td className={`p-2 font-bold ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>{balance.toLocaleString()} ج.م</td>
+                                            <td className={`p-2 font-bold ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>{balance > 0 ? balance.toLocaleString() + ' ج.م (مديونية)' : Math.abs(balance).toLocaleString() + ' ج.م (فائض)'}</td>
                                             <td className="p-2"><button onClick={() => handleOpenSupplierForm(s)} className="text-blue-600">تعديل</button></td>
                                         </tr>
                                     );
@@ -190,7 +191,6 @@ const SuppliersManagement: React.FC<SuppliersManagementProps> = ({ suppliers, pr
                 </div>
             )}
 
-            {/* Modals */}
             {showSupplierForm && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
                     <form onSubmit={handleSupplierSubmit} className="bg-white p-6 rounded-lg w-full max-w-lg space-y-3">
