@@ -1,0 +1,345 @@
+
+import React, { useState } from 'react';
+import type { Website, Store, OnlineOrder, WebBlock } from '../../types';
+import { ShoppingCartIcon, CheckCircleIcon, EyeIcon } from '../icons/Icons';
+
+interface PublicSiteRendererProps {
+    store: Store;
+    onBack: () => void;
+    onNewOrder: (order: OnlineOrder) => void;
+}
+
+const PublicSiteRenderer: React.FC<PublicSiteRendererProps> = ({ store, onBack, onNewOrder }) => {
+    const website = store.website!;
+    const [cart, setCart] = useState<{productId: string, quantity: number}[]>([]);
+    const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+    const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', address: '' });
+
+    const products = store.products; // Live products from store
+
+    const addToCart = (productId: string) => {
+        setCart(prev => {
+            const existing = prev.find(i => i.productId === productId);
+            if (existing) {
+                return prev.map(i => i.productId === productId ? { ...i, quantity: i.quantity + 1 } : i);
+            }
+            return [...prev, { productId, quantity: 1 }];
+        });
+        // Simple toast
+        const toast = document.createElement('div');
+        toast.innerText = 'تمت الإضافة للسلة';
+        toast.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow-lg z-50 animate-fade-in-up';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+    };
+
+    const cartTotal = cart.reduce((sum, item) => {
+        const p = products.find(p => p.id === item.productId);
+        return sum + (p ? p.sellPrice * item.quantity : 0);
+    }, 0);
+
+    const handleCheckout = (e: React.FormEvent) => {
+        e.preventDefault();
+        const order: OnlineOrder = {
+            id: `ORD-${Date.now()}`,
+            storeId: store.id,
+            customerName: customerInfo.name,
+            customerPhone: customerInfo.phone,
+            address: customerInfo.address,
+            items: cart.map(i => {
+                const p = products.find(prod => prod.id === i.productId)!;
+                return { productId: i.productId, quantity: i.quantity, price: p.sellPrice, name: p.name };
+            }),
+            totalAmount: cartTotal,
+            status: 'new',
+            date: new Date().toISOString(),
+            paymentMethod: 'cod' // Default for MVP
+        };
+        
+        onNewOrder(order);
+        alert('تم استلام طلبك بنجاح! سنتواصل معك قريباً.');
+        setCart([]);
+        setIsCheckoutOpen(false);
+    };
+
+    // --- Block Renderers ---
+    const renderBlock = (block: WebBlock) => {
+        switch (block.type) {
+            case 'hero':
+                return (
+                    <div key={block.id} className="bg-gray-900 text-white py-20 px-4 text-center" style={{ backgroundColor: website.theme.primaryColor }}>
+                        <h1 className="text-5xl font-bold mb-4">{block.content.title}</h1>
+                        <p className="text-xl opacity-90 mb-8">{block.content.subtitle}</p>
+                        <button className="bg-white text-gray-900 px-8 py-3 rounded-full font-bold hover:bg-gray-100 transition">
+                            {block.content.buttonText}
+                        </button>
+                    </div>
+                );
+            case 'text':
+                return (
+                    <div key={block.id} className="container mx-auto px-4 py-12 prose max-w-4xl text-center">
+                        <p className="text-lg text-gray-600">{block.content.text}</p>
+                    </div>
+                );
+            case 'product_grid':
+                return (
+                    <div key={block.id} className="container mx-auto px-4 py-12 bg-gray-50">
+                        <h2 className="text-3xl font-bold text-center mb-8 text-gray-800">{block.content.title}</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                            {products.slice(0, block.content.limit || 8).map(product => (
+                                <div key={product.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden flex flex-col">
+                                    <div className="h-48 bg-gray-200 flex items-center justify-center text-gray-400">
+                                        <EyeIcon /> {/* Placeholder image */}
+                                    </div>
+                                    <div className="p-4 flex-1 flex flex-col">
+                                        <h3 className="font-bold text-gray-800 mb-1">{product.name}</h3>
+                                        <p className="text-indigo-600 font-bold mb-4">{product.sellPrice.toLocaleString()} ج.م</p>
+                                        <button 
+                                            onClick={() => addToCart(product.id)}
+                                            className="mt-auto w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition"
+                                        >
+                                            إضافة للسلة
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            case 'features':
+                return (
+                     <div key={block.id} className="container mx-auto px-4 py-12">
+                        <h2 className="text-3xl font-bold text-center mb-12">{block.content.title}</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+                             <div className="p-6 border rounded-xl">
+                                 <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">🚀</div>
+                                 <h3 className="font-bold text-xl mb-2">سرعة في التوصيل</h3>
+                                 <p className="text-gray-600">نصلك أينما كنت في أسرع وقت.</p>
+                             </div>
+                             <div className="p-6 border rounded-xl">
+                                 <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">🛡️</div>
+                                 <h3 className="font-bold text-xl mb-2">ضمان الجودة</h3>
+                                 <p className="text-gray-600">منتجات أصلية ومضمونة 100%.</p>
+                             </div>
+                             <div className="p-6 border rounded-xl">
+                                 <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">💬</div>
+                                 <h3 className="font-bold text-xl mb-2">دعم متواصل</h3>
+                                 <p className="text-gray-600">فريق دعم فني جاهز لخدمتكم.</p>
+                             </div>
+                        </div>
+                     </div>
+                );
+            case 'contact_form':
+                return (
+                    <div key={block.id} className="bg-gray-100 py-12">
+                        <div className="container mx-auto px-4 max-w-lg">
+                             <h2 className="text-3xl font-bold text-center mb-8">{block.content.title}</h2>
+                             <form className="bg-white p-6 rounded-xl shadow-sm space-y-4" onSubmit={(e) => { e.preventDefault(); alert('شكرا لتواصلك معنا!'); }}>
+                                 <input type="text" placeholder="الاسم" className="w-full p-3 border rounded" required />
+                                 <input type="email" placeholder="البريد الإلكتروني" className="w-full p-3 border rounded" required />
+                                 <textarea placeholder="رسالتك" className="w-full p-3 border rounded h-32" required></textarea>
+                                 <button className="w-full bg-gray-800 text-white py-3 rounded font-bold hover:bg-gray-900">إرسال</button>
+                             </form>
+                        </div>
+                    </div>
+                );
+            case 'image_carousel':
+                return (
+                    <div key={block.id} className="w-full overflow-hidden relative group">
+                        <div className="flex overflow-x-auto snap-x snap-mandatory">
+                            {(block.content.images || []).map((src: string, idx: number) => (
+                                <div key={idx} className="w-full flex-shrink-0 snap-center">
+                                    <img src={src} alt={`Slide ${idx}`} className="w-full h-[400px] object-cover" />
+                                </div>
+                            ))}
+                        </div>
+                        {/* Add navigation buttons if needed */}
+                    </div>
+                );
+            case 'video':
+                return (
+                    <div key={block.id} className="container mx-auto px-4 py-12 text-center">
+                        <h2 className="text-2xl font-bold mb-6">{block.content.title}</h2>
+                        <div className="max-w-3xl mx-auto aspect-w-16 aspect-h-9">
+                            <iframe 
+                                src={block.content.videoUrl} 
+                                title={block.content.title} 
+                                className="w-full h-[400px] rounded-xl shadow-lg" 
+                                allowFullScreen
+                            ></iframe>
+                        </div>
+                    </div>
+                );
+            case 'testimonials':
+                return (
+                    <div key={block.id} className="bg-indigo-50 py-16">
+                        <div className="container mx-auto px-4">
+                            <h2 className="text-3xl font-bold text-center mb-10 text-indigo-900">{block.content.title}</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                {(block.content.items || []).map((item: any, idx: number) => (
+                                    <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-indigo-100 text-center">
+                                        <div className="w-16 h-16 bg-indigo-200 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl">👤</div>
+                                        <p className="text-gray-600 italic mb-4">"{item.text}"</p>
+                                        <h4 className="font-bold text-gray-800">{item.name}</h4>
+                                        <p className="text-xs text-indigo-500 uppercase tracking-wide">{item.role}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            case 'faq':
+                return (
+                    <div key={block.id} className="container mx-auto px-4 py-12 max-w-3xl">
+                        <h2 className="text-3xl font-bold text-center mb-8">{block.content.title}</h2>
+                        <div className="space-y-4">
+                            {(block.content.items || []).map((item: any, idx: number) => (
+                                <details key={idx} className="bg-white border rounded-lg group">
+                                    <summary className="p-4 cursor-pointer font-bold text-gray-800 flex justify-between items-center group-open:text-indigo-600">
+                                        {item.q}
+                                        <span className="transform transition group-open:rotate-180">▼</span>
+                                    </summary>
+                                    <div className="p-4 pt-0 text-gray-600 border-t border-gray-100">
+                                        {item.a}
+                                    </div>
+                                </details>
+                            ))}
+                        </div>
+                    </div>
+                );
+            case 'cta':
+                return (
+                    <div key={block.id} className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-16 px-4 text-center">
+                        <h2 className="text-4xl font-bold mb-4">{block.content.title}</h2>
+                        <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">{block.content.subtitle}</p>
+                        <button className="bg-white text-indigo-600 px-8 py-3 rounded-full font-bold text-lg shadow-lg hover:bg-gray-100 transition transform hover:scale-105">
+                            {block.content.buttonText}
+                        </button>
+                    </div>
+                );
+            case 'footer':
+                return (
+                    <footer key={block.id} className="bg-gray-900 text-gray-300 py-12 mt-auto">
+                        <div className="container mx-auto px-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+                                <div>
+                                    <h3 className="font-bold text-white text-lg mb-4">{website.title}</h3>
+                                    <p className="text-sm text-gray-400">متجرك المفضل للتسوق الإلكتروني.</p>
+                                </div>
+                                {(block.content.columns || []).map((col: any, idx: number) => (
+                                    <div key={idx}>
+                                        <h4 className="font-bold text-white mb-4">{col.title}</h4>
+                                        <ul className="space-y-2 text-sm">
+                                            {(col.links || []).map((link: string, lIdx: number) => (
+                                                <li key={lIdx}><a href="#" className="hover:text-white transition">{link}</a></li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="border-t border-gray-800 pt-8 text-center text-sm">
+                                {block.content.copyright}
+                            </div>
+                        </div>
+                    </footer>
+                );
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-white font-sans relative" style={{ fontFamily: website.theme.fontFamily }}>
+            {/* Top Bar (Simulation Controls) */}
+            <div className="fixed top-0 left-0 right-0 bg-gray-900 text-white p-2 z-50 flex justify-between items-center px-4 text-sm">
+                <div>معاينة المتجر: <span className="font-bold text-indigo-400">{website.subdomain}.nebras.app</span></div>
+                <button onClick={onBack} className="bg-white text-gray-900 px-3 py-1 rounded hover:bg-gray-200">عودة للوحة التحكم</button>
+            </div>
+
+            {/* Website Header */}
+            <header className="sticky top-[36px] z-40 bg-white/90 backdrop-blur-md border-b shadow-sm mt-[36px]">
+                <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+                    <div className="text-2xl font-bold text-gray-800">{website.title}</div>
+                    <div className="flex items-center gap-6">
+                        <nav className="hidden md:flex gap-6 text-gray-600">
+                            <a href="#" className="hover:text-indigo-600 font-medium">الرئيسية</a>
+                            <a href="#" className="hover:text-indigo-600 font-medium">المنتجات</a>
+                            <a href="#" className="hover:text-indigo-600 font-medium">من نحن</a>
+                        </nav>
+                        <button 
+                            onClick={() => setIsCheckoutOpen(true)}
+                            className="relative p-2 text-gray-600 hover:text-indigo-600"
+                        >
+                            <ShoppingCartIcon />
+                            {cart.length > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                    {cart.reduce((s, i) => s + i.quantity, 0)}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            {/* Website Content */}
+            <main>
+                {website.pages.find(p => p.isHome)?.blocks.map(renderBlock)}
+            </main>
+
+            {/* Checkout Modal */}
+            {isCheckoutOpen && (
+                <div className="fixed inset-0 bg-black/50 z-[60] flex justify-end">
+                    <div className="bg-white w-full max-w-md h-full shadow-2xl p-6 overflow-y-auto animate-fade-in-up">
+                        <div className="flex justify-between items-center mb-6 border-b pb-4">
+                            <h2 className="text-2xl font-bold">سلة المشتريات</h2>
+                            <button onClick={() => setIsCheckoutOpen(false)} className="text-gray-400 hover:text-red-500 text-2xl">&times;</button>
+                        </div>
+
+                        {cart.length === 0 ? (
+                            <p className="text-center text-gray-500 py-10">السلة فارغة.</p>
+                        ) : (
+                            <>
+                                <div className="space-y-4 mb-6">
+                                    {cart.map(item => {
+                                        const p = products.find(prod => prod.id === item.productId)!;
+                                        return (
+                                            <div key={item.productId} className="flex justify-between items-center border-b pb-2">
+                                                <div>
+                                                    <h4 className="font-bold text-gray-800">{p.name}</h4>
+                                                    <p className="text-sm text-gray-500">{item.quantity} x {p.sellPrice.toLocaleString()}</p>
+                                                </div>
+                                                <span className="font-bold">{(item.quantity * p.sellPrice).toLocaleString()}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                
+                                <div className="flex justify-between text-xl font-bold text-gray-800 border-t pt-4 mb-6">
+                                    <span>الإجمالي</span>
+                                    <span>{cartTotal.toLocaleString()} ج.م</span>
+                                </div>
+
+                                <form onSubmit={handleCheckout} className="space-y-4">
+                                    <h3 className="font-bold text-gray-700">بيانات الشحن</h3>
+                                    <input required type="text" placeholder="الاسم الكامل" className="w-full p-3 border rounded bg-gray-50" value={customerInfo.name} onChange={e => setCustomerInfo({...customerInfo, name: e.target.value})} />
+                                    <input required type="tel" placeholder="رقم الهاتف" className="w-full p-3 border rounded bg-gray-50" value={customerInfo.phone} onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})} />
+                                    <input required type="text" placeholder="العنوان بالتفصيل" className="w-full p-3 border rounded bg-gray-50" value={customerInfo.address} onChange={e => setCustomerInfo({...customerInfo, address: e.target.value})} />
+                                    
+                                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                                        الدفع عند الاستلام متاح حالياً فقط.
+                                    </div>
+
+                                    <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg">
+                                        تأكيد الطلب
+                                    </button>
+                                </form>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default PublicSiteRenderer;

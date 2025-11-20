@@ -1,9 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
-import type { Product, Supplier, InventoryMovement, MovementType } from '../types';
-
+import type { Product, Supplier, InventoryMovement, MovementType, Store } from '../types';
+import { SUBSCRIPTION_PLANS } from '../data/subscriptionPlans';
+import UpgradeModal from './UpgradeModal';
 
 interface InventoryProps {
+  store: Store; // Changed to accept full store for plan checking
   products: (Product & { quantitySold: number; quantityAvailable: number; })[];
   addProduct: (product: Omit<Product, 'id'>) => void;
   suppliers: Supplier[];
@@ -11,7 +13,7 @@ interface InventoryProps {
   inventoryMovements: InventoryMovement[];
 }
 
-const Inventory: React.FC<InventoryProps> = ({ products, addProduct, suppliers, logActivity, inventoryMovements }) => {
+const Inventory: React.FC<InventoryProps> = ({ store, products, addProduct, suppliers, logActivity, inventoryMovements }) => {
   const [showForm, setShowForm] = useState(false);
   const [newProduct, setNewProduct] = useState({
       name: '',
@@ -25,6 +27,10 @@ const Inventory: React.FC<InventoryProps> = ({ products, addProduct, suppliers, 
   const [priceWarning, setPriceWarning] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [viewingHistoryFor, setViewingHistoryFor] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const currentPlan = SUBSCRIPTION_PLANS[store.plan] || SUBSCRIPTION_PLANS.free;
+  const isLimitReached = products.length >= currentPlan.limits.products;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -40,8 +46,21 @@ const Inventory: React.FC<InventoryProps> = ({ products, addProduct, suppliers, 
     }
   };
 
+  const handleAddClick = () => {
+      if (isLimitReached) {
+          setShowUpgradeModal(true);
+      } else {
+          setShowForm(!showForm);
+      }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLimitReached) {
+        setShowUpgradeModal(true);
+        return;
+    }
+
     if (newProduct.name && newProduct.sellPrice > 0 && newProduct.initialQuantity >= 0 && newProduct.supplierId) {
         addProduct(newProduct);
         setNewProduct({ name: '', category: 'موبايل', costPrice: 0, sellPrice: 0, initialQuantity: 0, supplierId: '' });
@@ -130,11 +149,23 @@ const Inventory: React.FC<InventoryProps> = ({ products, addProduct, suppliers, 
 
   return (
     <div className="space-y-6">
+      <UpgradeModal 
+        isOpen={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)} 
+        title="تم الوصول للحد الأقصى"
+        message={`باقتك الحالية (${currentPlan.name}) تسمح بإضافة ${currentPlan.limits.products} منتج فقط. قم بالترقية لإضافة المزيد.`}
+      />
+
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">المخزون والمنتجات</h1>
+        <div>
+            <h1 className="text-3xl font-bold text-gray-800">المخزون والمنتجات</h1>
+            <p className="text-sm text-gray-500 mt-1">
+                المنتجات: {products.length} / {currentPlan.limits.products === Infinity ? 'غير محدود' : currentPlan.limits.products}
+            </p>
+        </div>
         <button 
           id="inventory-add-product-btn"
-          onClick={() => setShowForm(!showForm)}
+          onClick={handleAddClick}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
         >
           {showForm ? 'إلغاء' : 'إضافة منتج جديد'}

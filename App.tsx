@@ -1,14 +1,4 @@
 
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Login from './components/Login';
 import Sidebar from './components/Sidebar';
@@ -36,11 +26,13 @@ import GeneralLedger from './components/GeneralLedger';
 import ModuleMarketplace from './components/ModuleMarketplace';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import CustomerServiceAI from './components/CustomerServiceAI';
-import StoreSystemSupport from './components/StoreSystemSupport'; // Import the new component
+import StoreSystemSupport from './components/StoreSystemSupport';
+import WebsiteBuilder from './components/WebsiteBuilder/WebsiteBuilder';
+import PublicSiteRenderer from './components/WebsiteBuilder/PublicSiteRenderer';
 
 import { initDB, loadStores, saveStores, loadAISettings, saveAISettings, loadMarketplaceSettings, saveMarketplaceSettings } from './services/db';
 import { getAiSuggestions } from './services/geminiService';
-import type { Store, Employee, AISettings, ModuleDefinition, CostCenter, ActivityLog, SupportTicket, TicketMessage, TicketStatus, JournalEntry, JournalLine } from './types';
+import type { Store, Employee, AISettings, ModuleDefinition, CostCenter, ActivityLog, SupportTicket, TicketMessage, TicketStatus, JournalEntry, JournalLine, OnlineOrder } from './types';
 
 const DEFAULT_MODULES: ModuleDefinition[] = [
     { id: 'dashboard', label: 'لوحة التحكم', description: 'نظرة عامة على أداء المتجر', price: 0, category: 'basic', isCore: true, isVisible: true },
@@ -63,6 +55,7 @@ const DEFAULT_MODULES: ModuleDefinition[] = [
     { id: 'treasury-banking', label: 'الخزينة والبنوك', description: 'إدارة السيولة والحسابات البنكية', price: 200, category: 'premium', isCore: false, isVisible: true },
     { id: 'general-ledger', label: 'دفتر الأستاذ (GL)', description: 'المحاسبة العامة والقيود', price: 300, category: 'premium', isCore: false, isVisible: true },
     { id: 'customer-service-ai', label: 'ذكاء خدمة العملاء', description: 'بوت واتساب وتحليل محادثات', price: 200, category: 'advanced', isCore: false, isVisible: true },
+    { id: 'website-builder', label: 'بناء المتجر الإلكتروني', description: 'أنشئ موقعاً تعريفياً أو متجراً للبيع أونلاين', price: 400, category: 'premium', isCore: false, isVisible: true },
     { id: 'user-guide', label: 'دليل المستخدم', description: 'شرح استخدام النظام', price: 0, category: 'basic', isCore: true, isVisible: true },
 ];
 
@@ -86,6 +79,9 @@ const App: React.FC = () => {
   const [marketplaceModules, setMarketplaceModules] = useState<ModuleDefinition[]>(DEFAULT_MODULES);
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
   const [isDbInitialized, setIsDbInitialized] = useState(false);
+  
+  // Public view state
+  const [viewingPublicSite, setViewingPublicSite] = useState<{storeId: string} | null>(null);
 
   // --- Initialization ---
   useEffect(() => {
@@ -99,18 +95,15 @@ const App: React.FC = () => {
         
         if (loadedStores && loadedStores.length > 0) {
              // --- DATA MIGRATION / FIX ---
-             // Ensure General Ledger and other new modules are enabled for existing stores (specifically for the admin)
              const patchedStores = loadedStores.map(store => {
                  let updatedStore = { ...store };
                  
                  // 1. Enable new core modules if missing
                  const coreModules = ['treasury-banking', 'notifications-center', 'user-guide'];
                  const missingModules = coreModules.filter(m => !updatedStore.enabledModules.includes(m));
-                 
                  if (missingModules.length > 0) {
                      updatedStore.enabledModules = [...updatedStore.enabledModules, ...missingModules];
                  }
-                 
                  // 2. Grant permission to Admin role if missing
                  updatedStore.roles = updatedStore.roles.map(role => {
                      if (role.id === 'admin') {
@@ -121,19 +114,16 @@ const App: React.FC = () => {
                      }
                      return role;
                  });
-                 
-                 // 3. Init CS Data if missing
                  if (!updatedStore.csConversations) updatedStore.csConversations = [];
                  if (!updatedStore.csBotSettings) updatedStore.csBotSettings = { enableWhatsApp: false, enableMessenger: false, welcomeMessage: "", autoReplyEnabled: false };
-
-                 // 4. Init Beta Features
                  if (!updatedStore.betaFeatures) updatedStore.betaFeatures = [];
+                 if (!updatedStore.onlineOrders) updatedStore.onlineOrders = []; 
+                 if (!updatedStore.plan) updatedStore.plan = 'free'; // Init plan
 
                  return updatedStore;
              });
 
             setStores(patchedStores);
-            // Save immediately to persist the patch
             saveStores(patchedStores);
         } else {
             // --- SEED DEFAULT DEMO STORE ---
@@ -147,6 +137,7 @@ const App: React.FC = () => {
                 subscriptionEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
                 subscriptionMonthlyPrice: 0,
                 storeType: 'متجر شامل',
+                plan: 'pro', // Give demo store Pro plan
                 enabledModules: DEFAULT_MODULES.map(m => m.id), // Enable ALL modules
                 betaFeatures: [],
                 products: [
@@ -208,48 +199,14 @@ const App: React.FC = () => {
                 journalEntries: [],
                 costCenters: [],
                 budgets: [],
-                // Default CS Data for Demo
-                csConversations: [
-                    {
-                        id: 'conv1',
-                        customerName: 'محمد علي',
-                        customerPhone: '0501234567',
-                        platform: 'whatsapp',
-                        status: 'active',
-                        lastActivity: new Date().toISOString(),
-                        messages: [
-                            { id: 'm1', sender: 'user', content: 'السلام عليكم، هل لديكم ايفون 15؟', timestamp: new Date(Date.now() - 3600000).toISOString() },
-                            { id: 'm2', sender: 'agent', content: 'وعليكم السلام، نعم متوفر يا غالي.', timestamp: new Date(Date.now() - 3500000).toISOString() },
-                            { id: 'm3', sender: 'user', content: 'كم سعره؟ وهل عليه ضمان؟', timestamp: new Date(Date.now() - 3400000).toISOString() }
-                        ]
-                    },
-                    {
-                        id: 'conv2',
-                        customerName: 'سارة أحمد',
-                        customerPhone: '0509876543',
-                        platform: 'messenger',
-                        status: 'closed',
-                        lastActivity: new Date(Date.now() - 86400000).toISOString(),
-                        messages: [
-                            { id: 'm4', sender: 'user', content: 'الجهاز اللي شريته فيه مشكلة بالصوت.', timestamp: new Date(Date.now() - 90000000).toISOString() },
-                            { id: 'm5', sender: 'agent', content: 'نعتذر عن ذلك، يرجى إحضاره للفرع للفحص.', timestamp: new Date(Date.now() - 89000000).toISOString() }
-                        ],
-                        sentiment: 'negative',
-                        aiSummary: 'شكوى بخصوص عطل في الصوت بجهاز تم شراؤه.'
-                    }
-                ],
-                csBotSettings: {
-                    enableWhatsApp: true,
-                    enableMessenger: false,
-                    welcomeMessage: "أهلاً بك في متجر نبراس! 🌟 كيف يمكننا خدمتك اليوم؟",
-                    autoReplyEnabled: true
-                }
+                csConversations: [],
+                csBotSettings: { enableWhatsApp: false, enableMessenger: false, welcomeMessage: "", autoReplyEnabled: false },
+                onlineOrders: []
             };
             setStores([defaultStore]);
         }
 
         if (loadedAiSettings) setAiSettings(loadedAiSettings);
-        // Merge loaded modules with defaults to ensure new core modules (like GL) appear
         if (loadedMarketplace) {
             const mergedModules = DEFAULT_MODULES.map(defMod => {
                 const existing = loadedMarketplace.find(m => m.id === defMod.id);
@@ -262,6 +219,22 @@ const App: React.FC = () => {
       }
     };
     init();
+
+    // Check for "Public View" simulated route hash: #site/{storeId}
+    const checkHash = () => {
+        const hash = window.location.hash;
+        if (hash.startsWith('#site/')) {
+            const storeId = hash.split('/')[1];
+            if (storeId) setViewingPublicSite({ storeId });
+        } else {
+            setViewingPublicSite(null);
+        }
+    };
+
+    window.addEventListener('hashchange', checkHash);
+    checkHash(); // Check on load
+
+    return () => window.removeEventListener('hashchange', checkHash);
   }, []);
 
   // --- Persistence ---
@@ -279,17 +252,13 @@ const App: React.FC = () => {
 
   // --- Login Logic ---
   const handleLogin = (username: string, password: string): boolean => {
-    // 1. Check Super Admin
     if (username === 'superadmin' && password === 'superpassword') {
         setIsSuperAdmin(true);
         return true;
     }
-
-    // 2. Check Store Employees
     for (const store of stores) {
         const employee = store.employees.find(e => e.username === username && e.password === password);
         if (employee) {
-            // Check subscription expiry
             if (new Date(store.subscriptionEndDate) < new Date()) {
                 alert('عفواً، انتهت صلاحية اشتراك هذا المتجر. يرجى التواصل مع الإدارة.');
                 return false;
@@ -310,16 +279,10 @@ const App: React.FC = () => {
   };
 
   // --- Store Data Updaters ---
-  // Helper to update the current store within the stores array
   const updateStoreData = (updater: (store: Store) => Store) => {
       if (!currentStore) return;
-      
       const updatedStore = updater(currentStore);
-      
-      // Optimistic update for current store
       setCurrentStore(updatedStore); 
-
-      // Update in stores array
       setStores(prevStores => prevStores.map(s => s.id === updatedStore.id ? updatedStore : s));
   };
   
@@ -342,7 +305,6 @@ const App: React.FC = () => {
       updateStoreData(s => ({ ...s, activityLogs: [newLog, ...s.activityLogs] }));
   };
 
-  // --- Helpers for GL ---
   const createAutoJournalEntry = (date: string, description: string, lines: JournalLine[]): JournalEntry => {
       return {
           id: `JE-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -353,19 +315,16 @@ const App: React.FC = () => {
       };
   };
 
-  // --- Module Specific Handlers (Wrappers around updateStoreData) ---
+  // --- Handlers for Modules ---
   const handleAddSale = (sale: any) => {
       updateStoreData(s => {
-          const newInvoiceId = `INV-${Date.now()}`; // Simple ID generation
-          // Deduct stock
+          const newInvoiceId = `INV-${Date.now()}`;
           const updatedProducts = s.products.map(p => {
               if (p.id === sale.productId) {
-                  return { ...p, initialQuantity: p.initialQuantity }; // Initial doesn't change, quantityAvailable is calculated derived in components or we should track movement
+                  return { ...p, initialQuantity: p.initialQuantity };
               }
               return p;
           });
-          
-          // Add movement
           const movement = {
               id: `MOV-${Date.now()}`,
               date: sale.date,
@@ -375,8 +334,6 @@ const App: React.FC = () => {
               referenceId: newInvoiceId,
               notes: `بيع فاتورة #${newInvoiceId}`
           };
-
-          // Check for Installment Plan creation
           let newInstallmentPlans = s.installmentPlans;
           if (sale.paymentMethod === 'installment' && sale.installmentDetails && sale.customerId) {
              const plan = {
@@ -384,8 +341,8 @@ const App: React.FC = () => {
                  sourceId: newInvoiceId,
                  sourceType: 'sale' as const,
                  customerId: sale.customerId,
-                 totalFinancedAmount: sale.remainingBalance, // Financed amount
-                 totalRepaymentAmount: sale.remainingBalance * (1 + sale.installmentDetails.interestRate/100), // With interest
+                 totalFinancedAmount: sale.remainingBalance,
+                 totalRepaymentAmount: sale.remainingBalance * (1 + sale.installmentDetails.interestRate/100),
                  interestRate: sale.installmentDetails.interestRate,
                  numberOfInstallments: sale.installmentDetails.numberOfInstallments,
                  installmentAmount: (sale.remainingBalance * (1 + sale.installmentDetails.interestRate/100)) / sale.installmentDetails.numberOfInstallments,
@@ -405,13 +362,11 @@ const App: React.FC = () => {
              };
              newInstallmentPlans = [...newInstallmentPlans, plan];
           }
-          
-          // Update Customer Debt/Points if applicable
           let updatedCustomers = s.customers;
           if (sale.customerId) {
               updatedCustomers = s.customers.map(c => {
                   if (c.id === sale.customerId) {
-                      const newPoints = c.loyaltyPoints + Math.floor(sale.totalAmount / 10); // 1 point per 10 currency
+                      const newPoints = c.loyaltyPoints + Math.floor(sale.totalAmount / 10);
                       const newTransactions = [...c.transactions];
                       if (sale.remainingBalance > 0) {
                            newTransactions.push({
@@ -427,21 +382,15 @@ const App: React.FC = () => {
                   return c;
               });
           }
-          
-          // --- AUTOMATIC GL ENTRY FOR SALE ---
           const product = s.products.find(p => p.id === sale.productId);
           const costAmount = (product?.costPrice || 0) * sale.quantity;
-          // Assuming full amount is recognized as revenue, paid to cash/bank.
-          // Payment method determines the debit account.
           const debitAccount = ['card', 'bank_transfer'].includes(sale.paymentMethod) ? '102' : '101';
-          
           const glEntry = createAutoJournalEntry(sale.date, `بيع فاتورة #${newInvoiceId}`, [
-               { accountId: debitAccount, debit: sale.totalAmount, credit: 0 }, // Cash/Bank Dr
-               { accountId: '401', debit: 0, credit: sale.totalAmount }, // Sales Revenue Cr
-               { accountId: '501', debit: costAmount, credit: 0 }, // COGS Dr
-               { accountId: '103', debit: 0, credit: costAmount }  // Inventory Cr
+               { accountId: debitAccount, debit: sale.totalAmount, credit: 0 },
+               { accountId: '401', debit: 0, credit: sale.totalAmount },
+               { accountId: '501', debit: costAmount, credit: 0 },
+               { accountId: '103', debit: 0, credit: costAmount }
           ]);
-          
           return {
               ...s,
               sales: [...s.sales, { ...sale, invoiceId: newInvoiceId }],
@@ -453,7 +402,6 @@ const App: React.FC = () => {
       });
       logActivity(`إضافة عملية بيع جديدة (منتج: ${sale.productId})`);
   };
-
 
   const handleAddProduct = (product: any) => {
       updateStoreData(s => ({
@@ -483,7 +431,44 @@ const App: React.FC = () => {
       logActivity(`تفعيل مديول: ${moduleId}`);
   };
 
-  // --- Rendering ---
+  const handlePublicOrder = (storeId: string, order: OnlineOrder) => {
+      setStores(prev => prev.map(store => {
+          if (store.id === storeId) {
+              // Add notification for store owner
+              const notification = {
+                  id: `NOTIF-${Date.now()}`,
+                  type: 'online_order' as const,
+                  title: 'طلب أونلاين جديد',
+                  message: `طلب جديد من ${order.customerName} بقيمة ${order.totalAmount.toLocaleString()}`,
+                  timestamp: new Date().toISOString(),
+                  read: false,
+                  priority: 'high' as const,
+                  actionLink: 'website-builder'
+              };
+              return {
+                  ...store,
+                  onlineOrders: [...(store.onlineOrders || []), order],
+                  notifications: [notification, ...(store.notifications || [])]
+              };
+          }
+          return store;
+      }));
+  };
+
+
+  // --- View Selection ---
+  if (viewingPublicSite) {
+      const store = stores.find(s => s.id === viewingPublicSite.storeId);
+      if (!store) return <div className="p-10 text-center">المتجر غير موجود.</div>;
+      return (
+          <PublicSiteRenderer 
+              store={store} 
+              onBack={() => { window.location.hash = ''; }} 
+              onNewOrder={(order) => handlePublicOrder(store.id, order)}
+          />
+      );
+  }
+
   if (isSuperAdmin) {
       return (
           <SuperAdminDashboard 
@@ -502,12 +487,8 @@ const App: React.FC = () => {
     return <Login onLogin={handleLogin} />;
   }
 
-  // Filter modules based on what's enabled for the store
   const enabledModuleDefs = marketplaceModules.filter(m => currentStore.enabledModules.includes(m.id) || m.isCore);
-  
-  // Filter nav items based on user role permissions
   const userRole = currentStore.roles.find(r => r.id === currentUser.roleId);
-  // Enhanced logic: Show core modules for Admin even if permissions list isn't updated
   const navItems = enabledModuleDefs.filter(m => 
       userRole?.permissions.includes(m.id) || 
       userRole?.permissions.includes('all') || 
@@ -515,7 +496,6 @@ const App: React.FC = () => {
       (m.isCore && currentUser.roleId === 'admin')
   ); 
   
-  // Calculate unread messages
   const unreadMessagesCount = currentStore.aiMessages.filter(m => !m.read).length;
   const unreadNotificationsCount = currentStore.notifications?.filter(n => !n.read).length || 0;
 
@@ -549,6 +529,7 @@ const App: React.FC = () => {
         )}
         {activeView === 'inventory' && (
             <Inventory 
+                store={currentStore}
                 products={currentStore.products.map(p => ({
                     ...p, 
                     quantitySold: currentStore.sales.filter(s => s.productId === p.id).reduce((acc, s) => acc + s.quantity, 0),
@@ -584,10 +565,9 @@ const App: React.FC = () => {
                 expenses={currentStore.expenses}
                 addExpense={(exp) => {
                     updateStoreData(s => {
-                        // Automatic GL Entry for Expenses
                         const glEntry = createAutoJournalEntry(exp.date, `مصروف: ${exp.description}`, [
-                             { accountId: '503', debit: exp.amount, credit: 0 }, // Operating Expense Dr
-                             { accountId: '101', debit: 0, credit: exp.amount }  // Cash Cr
+                             { accountId: '503', debit: exp.amount, credit: 0 },
+                             { accountId: '101', debit: 0, credit: exp.amount }
                         ]);
                         return { 
                             ...s, 
@@ -654,10 +634,9 @@ const App: React.FC = () => {
                 markPayrollAsPaid={(id) => updateStoreData(s => {
                     const payroll = s.payrolls.find(p => p.id === id);
                     if (!payroll) return s;
-                    // Auto GL Entry for Salary Payment
                     const glEntry = createAutoJournalEntry(new Date().toISOString(), `دفع رواتب (ID: ${id})`, [
-                         { accountId: '502', debit: payroll.netSalary, credit: 0 }, // Salaries Expense Dr
-                         { accountId: '101', debit: 0, credit: payroll.netSalary }  // Cash Cr
+                         { accountId: '502', debit: payroll.netSalary, credit: 0 },
+                         { accountId: '101', debit: 0, credit: payroll.netSalary }
                     ]);
                     return {
                         ...s, 
@@ -727,10 +706,9 @@ const App: React.FC = () => {
                 updateSupplier={(sup) => updateStoreData(s => ({ ...s, suppliers: s.suppliers.map(s => s.id === sup.id ? sup : s) }))}
                 addPurchaseOrder={(po) => updateStoreData(s => ({ ...s, purchaseOrders: [...s.purchaseOrders, { ...po, id: `PO-${Date.now()}`, status: 'pending', payments: [] }] }))}
                 addPurchaseOrderPayment={(poId, payment) => updateStoreData(s => {
-                    // Auto GL for PO Payment
                     const glEntry = createAutoJournalEntry(payment.date, `دفعة لمورد (أمر شراء #${poId})`, [
-                         { accountId: '201', debit: payment.amount, credit: 0 }, // Accounts Payable Dr (or Inventory directly depending on flow)
-                         { accountId: '101', debit: 0, credit: payment.amount }  // Cash Cr
+                         { accountId: '201', debit: payment.amount, credit: 0 },
+                         { accountId: '101', debit: 0, credit: payment.amount }
                     ]);
                     return { 
                         ...s, 
@@ -797,7 +775,6 @@ const App: React.FC = () => {
                 addTreasury={(t) => updateStoreData(s => ({ ...s, treasuries: [...(s.treasuries || []), { ...t, id: `TRS-${Date.now()}`, balance: t.initialBalance }] }))}
                 addBankAccount={(b) => updateStoreData(s => ({ ...s, bankAccounts: [...(s.bankAccounts || []), { ...b, id: `BNK-${Date.now()}`, balance: b.initialBalance }] }))}
                 addFinancialTransaction={(tx) => {
-                    // Logic to update balances based on transaction type
                     updateStoreData(s => {
                         let newTreasuries = [...(s.treasuries || [])];
                         let newBanks = [...(s.bankAccounts || [])];
@@ -811,7 +788,6 @@ const App: React.FC = () => {
                             updateBalance(tx.sourceType, tx.sourceId, -tx.amount);
                             updateBalance(tx.destinationType, tx.destinationId, tx.amount);
                         } 
-                        // Other transaction types logic would go here
 
                         return {
                             ...s,
@@ -854,6 +830,12 @@ const App: React.FC = () => {
                 store={currentStore}
                 currentUser={currentUser}
                 onUpdateStore={updateStoreData}
+            />
+        )}
+        {activeView === 'website-builder' && (
+            <WebsiteBuilder 
+                store={currentStore}
+                updateStore={updateStorePartial}
             />
         )}
       </main>

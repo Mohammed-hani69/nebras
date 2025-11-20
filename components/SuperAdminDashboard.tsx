@@ -328,6 +328,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
             subscriptionEndDate: end,
             subscriptionMonthlyPrice: data.subscriptionMonthlyPrice || 0,
             storeType: data.storeType,
+            plan: 'free',
             enabledModules: data.enabledModules && data.enabledModules.length > 0 ? data.enabledModules : marketplaceModules.filter(m => m.isCore).map(m => m.id),
             products: [], sales: [], services: [], expenses: [], customers: [],
             suppliers: [], purchaseOrders: [],

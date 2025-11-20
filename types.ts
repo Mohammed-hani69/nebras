@@ -9,7 +9,7 @@ export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected';
 export type AdvanceStatus = 'unpaid' | 'paid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'on_leave';
 export type QuotationStatus = 'pending' | 'approved' | 'rejected' | 'invoiced';
-export type NotificationType = 'stock' | 'invoice' | 'service' | 'expense' | 'payment' | 'subscription' | 'system';
+export type NotificationType = 'stock' | 'invoice' | 'service' | 'expense' | 'payment' | 'subscription' | 'system' | 'online_order';
 
 export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -39,6 +39,76 @@ export interface GlobalSettings {
     };
 }
 // -----------------------
+
+// --- Website Builder Types ---
+export type BlockType = 'hero' | 'text' | 'image' | 'product_grid' | 'contact_form' | 'features' | 'footer' | 'image_carousel' | 'video' | 'testimonials' | 'faq' | 'cta';
+
+export interface WebBlock {
+    id: string;
+    type: BlockType;
+    content: any; // Dynamic props based on type (e.g., title, image url, product category)
+    style?: any; // CSS overrides
+}
+
+export interface WebPage {
+    id: string;
+    slug: string;
+    title: string;
+    blocks: WebBlock[];
+    isHome: boolean;
+    seoTitle?: string;
+    seoDescription?: string;
+}
+
+export interface WebTheme {
+    primaryColor: string;
+    secondaryColor: string;
+    fontFamily: string;
+    logoUrl?: string;
+}
+
+export interface Website {
+    id: string;
+    storeId: string;
+    subdomain: string; // e.g., "myshop" -> myshop.nebras.com
+    title: string;
+    type: 'company' | 'store';
+    templateId: string;
+    theme: WebTheme;
+    pages: WebPage[];
+    status: 'draft' | 'published';
+    settings: {
+        shippingRate: number;
+        allowCashOnDelivery: boolean;
+        contactEmail: string;
+        contactPhone: string;
+        whatsappNumber?: string;
+    };
+}
+
+export interface WebTemplate {
+    id: string;
+    name: string;
+    thumbnail: string;
+    isPremium: boolean;
+    type: 'company' | 'store';
+    defaultPages: WebPage[];
+    defaultTheme: WebTheme;
+}
+
+export interface OnlineOrder {
+    id: string;
+    storeId: string;
+    customerName: string;
+    customerPhone: string;
+    address: string;
+    items: { productId: string; quantity: number; price: number; name: string }[];
+    totalAmount: number;
+    status: 'new' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+    date: string;
+    paymentMethod: 'cod' | 'online';
+}
+// -----------------------------
 
 // --- General Ledger Types ---
 export type AccountType = 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
@@ -578,6 +648,7 @@ export interface Store {
   subscriptionEndDate: string; // ISO string format
   subscriptionMonthlyPrice: number;
   storeType: string;
+  plan: 'free' | 'basic' | 'pro' | 'enterprise'; // Added plan field
   enabledModules: string[];
   betaFeatures?: string[]; // List of enabled beta feature IDs
   products: Product[];
@@ -620,4 +691,7 @@ export interface Store {
   // Customer Service AI Data
   csConversations?: Conversation[];
   csBotSettings?: BotSettings;
+  // Website Builder Data
+  website?: Website;
+  onlineOrders?: OnlineOrder[];
 }
