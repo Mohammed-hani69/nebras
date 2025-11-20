@@ -9,6 +9,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings, Account } from '../types';
 import SuperAdminSidebar from './SuperAdminSidebar';
@@ -17,6 +19,7 @@ import SuperAdminAnalysis from './SuperAdminAnalysis';
 import SuperAdminAISettings from './SuperAdminAISettings';
 import SuperAdminMarketplace from './SuperAdminMarketplace';
 import SuperAdminChat from './SuperAdminChat';
+import SuperAdminMonitor from './SuperAdminMonitor';
 import { DocumentDownloadIcon, BellIcon, ExclamationTriangleIcon, PaperAirplaneIcon, SparklesIcon } from './icons/Icons';
 import { generateNotificationMessage } from '../services/geminiService';
 
@@ -667,6 +670,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
         switch (activeView) {
             case 'management':
                 return renderManagementView();
+            case 'monitor':
+                return <SuperAdminMonitor stores={stores} />;
             case 'profits':
                 return <SuperAdminProfit stores={stores} />;
             case 'analysis':
