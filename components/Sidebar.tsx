@@ -5,6 +5,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, DocumentDuplicateIcon, ArrowPathRoundedSquareIcon, BellIcon, TicketIcon, BuildingLibraryIcon, BookOpenIcon } from './icons/Icons';
 
@@ -143,7 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLo
                   {section.title}
                   <ChevronDownIcon />
                 </button>
-                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96' : 'max-h-0'}`}>
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px]' : 'max-h-0'}`}>
                     <ul className="space-y-1 pt-1 border-t border-slate-800">
                       {section.items.map(renderNavItem)}
                     </ul>
