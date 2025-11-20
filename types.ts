@@ -1,9 +1,4 @@
 
-
-
-
-
-
 export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'installment';
 export type MovementType = 'sale' | 'purchase' | 'sale_return' | 'purchase_return' | 'initial' | 'adjustment';
 export type ReturnReason = 'defective' | 'wrong_item' | 'customer_dissatisfaction' | 'other';
@@ -18,6 +13,32 @@ export type NotificationType = 'stock' | 'invoice' | 'service' | 'expense' | 'pa
 
 export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
+
+// --- Global Settings ---
+export interface GlobalSettings {
+    defaultCurrency: string;
+    defaultLanguage: 'ar' | 'en';
+    billingCycle: 'monthly' | 'quarterly' | 'yearly';
+    defaultTaxRate: number;
+    emailSettings: {
+        smtpHost: string;
+        smtpPort: number;
+        senderEmail: string;
+        enabled: boolean;
+    };
+    smsSettings: {
+        provider: string;
+        apiKey: string;
+        senderId: string;
+        enabled: boolean;
+    };
+    backupPolicy: {
+        autoBackup: boolean;
+        frequency: 'daily' | 'weekly';
+        lastBackupDate?: string;
+    };
+}
+// -----------------------
 
 // --- General Ledger Types ---
 export type AccountType = 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
@@ -542,6 +563,9 @@ export interface SupportTicket {
     createdAt: string;
     updatedAt: string;
     messages: TicketMessage[];
+    isSystemTicket?: boolean; // New: If true, sent to Super Admin
+    storeId?: string; // New: Origin Store ID
+    storeName?: string; // New: Origin Store Name
 }
 
 export interface Store {

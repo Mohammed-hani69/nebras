@@ -1,20 +1,6 @@
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings, Account } from '../types';
+import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings, Account, GlobalSettings } from '../types';
 import SuperAdminSidebar from './SuperAdminSidebar';
 import SuperAdminProfit from './SuperAdminProfit';
 import SuperAdminAnalysis from './SuperAdminAnalysis';
@@ -23,8 +9,11 @@ import SuperAdminMarketplace from './SuperAdminMarketplace';
 import SuperAdminChat from './SuperAdminChat';
 import SuperAdminMonitor from './SuperAdminMonitor';
 import SuperAdminPermissions from './SuperAdminPermissions';
+import SuperAdminGlobalSettings from './SuperAdminGlobalSettings';
+import SuperAdminSupport from './SuperAdminSupport'; // Import
 import { DocumentDownloadIcon, BellIcon, ExclamationTriangleIcon, PaperAirplaneIcon, SparklesIcon } from './icons/Icons';
 import { generateNotificationMessage } from '../services/geminiService';
+import { loadGlobalSettings, saveGlobalSettings } from '../services/db';
 
 interface SuperAdminDashboardProps {
   stores: Store[];
@@ -68,6 +57,16 @@ const DEFAULT_COA: Account[] = [
     { id: '503', code: '5030', name: 'رواتب وأجور', type: 'Expense', isSystem: true },
 ];
 
+const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
+    defaultCurrency: 'EGP',
+    defaultLanguage: 'ar',
+    billingCycle: 'monthly',
+    defaultTaxRate: 14,
+    emailSettings: { smtpHost: '', smtpPort: 587, senderEmail: '', enabled: false },
+    smsSettings: { provider: 'twilio', apiKey: '', senderId: '', enabled: false },
+    backupPolicy: { autoBackup: false, frequency: 'weekly' }
+};
+
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setStores, onLogout, aiSettings, onUpdateAISettings, marketplaceModules, onUpdateMarketplaceModule }) => {
     const [activeView, setActiveView] = useState('management');
     const [showForm, setShowForm] = useState(false);
@@ -75,12 +74,28 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
     const [formData, setFormData] = useState(INITIAL_FORM_STATE);
     const [showNotifications, setShowNotifications] = useState(false);
     
+    // Global Settings State
+    const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL_SETTINGS);
+
     // Broadcast State
     const [broadcastTopic, setBroadcastTopic] = useState('');
     const [broadcastTone, setBroadcastTone] = useState('رسمي ومهذب');
     const [broadcastMessage, setBroadcastMessage] = useState('');
     const [isGeneratingMsg, setIsGeneratingMsg] = useState(false);
     const [selectedStoreId, setSelectedStoreId] = useState('all');
+
+    useEffect(() => {
+        const loadSettings = async () => {
+            const loaded = await loadGlobalSettings();
+            if (loaded) setGlobalSettings(loaded);
+        };
+        loadSettings();
+    }, []);
+
+    const handleUpdateGlobalSettings = (newSettings: GlobalSettings) => {
+        setGlobalSettings(newSettings);
+        saveGlobalSettings(newSettings);
+    };
 
     const notifications = useMemo(() => {
         const today = new Date();
@@ -321,7 +336,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
             paymentHistory: [],
             aiMessages: [],
             aiInstructions: data.aiInstructions,
-            billingSettings: { storeName: data.name, taxNumber: '', taxRate: 15, address: '', phone: '' },
+            // Use Global Settings for defaults
+            billingSettings: { storeName: data.name, taxNumber: '', taxRate: globalSettings.defaultTaxRate, address: '', phone: '' },
             invoices: [],
             inventoryMovements: [],
             saleReturns: [],
@@ -685,6 +701,10 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                 return <SuperAdminMarketplace modules={marketplaceModules} updateModule={onUpdateMarketplaceModule} aiSettings={aiSettings} />;
             case 'permissions':
                 return <SuperAdminPermissions stores={stores} setStores={setStores} marketplaceModules={marketplaceModules} />;
+            case 'global-settings':
+                return <SuperAdminGlobalSettings settings={globalSettings} onSave={handleUpdateGlobalSettings} stores={stores} />;
+            case 'support-center': // Added
+                return <SuperAdminSupport stores={stores} setStores={setStores} />;
             default:
                 return renderManagementView();
         }

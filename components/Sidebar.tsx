@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, DocumentDuplicateIcon, ArrowPathRoundedSquareIcon, BellIcon, TicketIcon, BuildingLibraryIcon, BookOpenIcon, ChatBubbleLeftRightIcon } from './icons/Icons';
+import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, DocumentDuplicateIcon, ArrowPathRoundedSquareIcon, BellIcon, TicketIcon, BuildingLibraryIcon, BookOpenIcon, ChatBubbleLeftRightIcon, LifebuoyIcon } from './icons/Icons';
 
 interface UserWithPermissions {
   id: string;
@@ -109,6 +109,17 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLo
                             {unreadNotificationsCount}
                         </span>
                     )}
+                </button>
+            </li>
+
+            {/* System Support Button (Fixed for Store Owner) */}
+            <li className="nav-item">
+                <button
+                    onClick={() => setActiveView('system-support')}
+                    className={`w-full flex items-center space-x-3 p-3 rounded-lg text-right transition-all duration-200 mb-2 hover:bg-slate-800 hover:text-white ${activeView === 'system-support' ? 'bg-blue-600 text-white active' : 'text-slate-300'}`}
+                >
+                    <span className="text-xl"><LifebuoyIcon /></span>
+                    <span className="font-bold text-sm">الدعم الفني للنظام</span>
                 </button>
             </li>
 

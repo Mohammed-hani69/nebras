@@ -1,5 +1,5 @@
 
-import type { Store, AISettings, ModuleDefinition } from '../types';
+import type { Store, AISettings, ModuleDefinition, GlobalSettings } from '../types';
 
 const DB_NAME = 'MobileShopDB';
 const DB_VERSION = 2; // Incremented version
@@ -139,4 +139,26 @@ export const loadMarketplaceSettings = (): Promise<ModuleDefinition[] | null> =>
         };
         request.onerror = () => reject(request.error);
     });
+};
+
+export const saveGlobalSettings = (settings: GlobalSettings): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject('DB not initialized');
+    const transaction = db.transaction(STORES_OBJECT_STORE, 'readwrite');
+    const objectStore = transaction.objectStore(STORES_OBJECT_STORE);
+    const request = objectStore.put({ id: 'global_settings', data: settings });
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const loadGlobalSettings = (): Promise<GlobalSettings | null> => {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject('DB not initialized');
+    const transaction = db.transaction(STORES_OBJECT_STORE, 'readonly');
+    const objectStore = transaction.objectStore(STORES_OBJECT_STORE);
+    const request = objectStore.get('global_settings');
+    request.onsuccess = () => resolve(request.result?.data || null);
+    request.onerror = () => reject(request.error);
+  });
 };

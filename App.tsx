@@ -7,6 +7,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Login from './components/Login';
 import Sidebar from './components/Sidebar';
@@ -33,7 +35,8 @@ import TreasuryBanking from './components/TreasuryBanking';
 import GeneralLedger from './components/GeneralLedger';
 import ModuleMarketplace from './components/ModuleMarketplace';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
-import CustomerServiceAI from './components/CustomerServiceAI'; // Import the new component
+import CustomerServiceAI from './components/CustomerServiceAI';
+import StoreSystemSupport from './components/StoreSystemSupport'; // Import the new component
 
 import { initDB, loadStores, saveStores, loadAISettings, saveAISettings, loadMarketplaceSettings, saveMarketplaceSettings } from './services/db';
 import { getAiSuggestions } from './services/geminiService';
@@ -844,6 +847,13 @@ const App: React.FC = () => {
                 availableModules={marketplaceModules}
                 userStore={currentStore}
                 onEnableModule={handleEnableModule}
+            />
+        )}
+        {activeView === 'system-support' && (
+            <StoreSystemSupport 
+                store={currentStore}
+                currentUser={currentUser}
+                onUpdateStore={updateStoreData}
             />
         )}
       </main>
