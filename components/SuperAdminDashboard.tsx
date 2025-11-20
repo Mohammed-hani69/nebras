@@ -1,6 +1,10 @@
 
+
+
+
+
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings, Account, GlobalSettings } from '../types';
+import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings, Account, GlobalSettings, WebTemplate, BlockDefinition } from '../types';
 import SuperAdminSidebar from './SuperAdminSidebar';
 import SuperAdminProfit from './SuperAdminProfit';
 import SuperAdminAnalysis from './SuperAdminAnalysis';
@@ -10,7 +14,8 @@ import SuperAdminChat from './SuperAdminChat';
 import SuperAdminMonitor from './SuperAdminMonitor';
 import SuperAdminPermissions from './SuperAdminPermissions';
 import SuperAdminGlobalSettings from './SuperAdminGlobalSettings';
-import SuperAdminSupport from './SuperAdminSupport'; // Import
+import SuperAdminSupport from './SuperAdminSupport';
+import SuperAdminWebsiteBuilder from './SuperAdminWebsiteBuilder'; // Import new component
 import { DocumentDownloadIcon, BellIcon, ExclamationTriangleIcon, PaperAirplaneIcon, SparklesIcon } from './icons/Icons';
 import { generateNotificationMessage } from '../services/geminiService';
 import { loadGlobalSettings, saveGlobalSettings } from '../services/db';
@@ -23,6 +28,11 @@ interface SuperAdminDashboardProps {
   onUpdateAISettings: (settings: AISettings) => void;
   marketplaceModules: ModuleDefinition[];
   onUpdateMarketplaceModule: (module: ModuleDefinition) => void;
+  // Builder Assets
+  initialTemplates: WebTemplate[];
+  initialBlocks: BlockDefinition[];
+  onUpdateTemplates: (templates: WebTemplate[]) => void;
+  onUpdateBlocks: (blocks: BlockDefinition[]) => void;
 }
 
 const INITIAL_FORM_STATE = {
@@ -67,7 +77,11 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
     backupPolicy: { autoBackup: false, frequency: 'weekly' }
 };
 
-const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setStores, onLogout, aiSettings, onUpdateAISettings, marketplaceModules, onUpdateMarketplaceModule }) => {
+const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ 
+    stores, setStores, onLogout, aiSettings, onUpdateAISettings, 
+    marketplaceModules, onUpdateMarketplaceModule,
+    initialTemplates, initialBlocks, onUpdateTemplates, onUpdateBlocks
+}) => {
     const [activeView, setActiveView] = useState('management');
     const [showForm, setShowForm] = useState(false);
     const [isEditing, setIsEditing] = useState<Store | null>(null);
@@ -704,8 +718,18 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                 return <SuperAdminPermissions stores={stores} setStores={setStores} marketplaceModules={marketplaceModules} />;
             case 'global-settings':
                 return <SuperAdminGlobalSettings settings={globalSettings} onSave={handleUpdateGlobalSettings} stores={stores} />;
-            case 'support-center': // Added
+            case 'support-center':
                 return <SuperAdminSupport stores={stores} setStores={setStores} />;
+            case 'website-builder-admin':
+                return <SuperAdminWebsiteBuilder 
+                            stores={stores} 
+                            setStores={setStores} 
+                            aiSettings={aiSettings}
+                            initialTemplates={initialTemplates}
+                            initialBlocks={initialBlocks}
+                            onUpdateTemplates={onUpdateTemplates}
+                            onUpdateBlocks={onUpdateBlocks}
+                        />;
             default:
                 return renderManagementView();
         }

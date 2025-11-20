@@ -4,6 +4,7 @@
 
 
 
+
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import type { Store, AISettings, Lead, Customer, Conversation, ModuleDefinition } from '../types';
 
@@ -227,6 +228,57 @@ export const generateNotificationMessage = async (topic: string, tone: string, a
         return "عذرًا، حدث خطأ أثناء توليد الرسالة.";
     }
 }
+
+// New function for Website Builder Code Generation
+export const generateBuilderComponent = async (promptText: string, type: 'block' | 'template', aiSettings: AISettings): Promise<any> => {
+    try {
+        const systemPrompt = `
+            You are an expert React/Tailwind developer and UI/UX designer.
+            Your task is to generate a JSON configuration for a Website Builder component based on the user's description.
+            
+            The builder uses a schema-based approach where content is separated from style.
+            The allowed block types are: 'hero', 'text', 'product_grid', 'features', 'image_carousel', 'video', 'testimonials', 'faq', 'cta', 'contact_form', 'footer'.
+            
+            OUTPUT FORMAT: JSON ONLY. No markdown, no explanation.
+            
+            If type is 'block', return a single object conforming to 'WebBlock' interface:
+            {
+                "type": "hero", // or other valid type
+                "content": { ... specific fields based on type ... },
+                "style": { "backgroundColor": "#...", "padding": "...", "textAlign": "...", "color": "..." }
+            }
+
+            If type is 'template', return a 'WebTemplate' object:
+            {
+                "name": "Template Name",
+                "type": "store", // or 'company'
+                "defaultTheme": { "primaryColor": "...", "secondaryColor": "...", "fontFamily": "Tajawal" },
+                "defaultPages": [ ... array of pages with blocks ... ]
+            }
+
+            IMPORTANT:
+            - For images, ALWAYS use 'https://placehold.co/WIDTHxHEIGHT/COLOR/fff?text=Title' as placeholders.
+            - Use Arabic text for content unless specified otherwise.
+            - Ensure styles are valid CSS properties (camelCase).
+        `;
+
+        const userPrompt = `Generate a ${type} based on this description: "${promptText}"`;
+
+        const response = await ai.models.generateContent({
+            model: aiSettings.model,
+            contents: systemPrompt + "\n\n" + userPrompt,
+            config: {
+                responseMimeType: "application/json",
+                temperature: 0.7,
+            }
+        });
+
+        return JSON.parse(response.text);
+    } catch (error) {
+        console.error("Gemini Builder Generation Error:", error);
+        throw error;
+    }
+};
 
 // --- Super Admin AI Functions ---
 

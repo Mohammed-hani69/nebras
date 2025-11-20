@@ -1,6 +1,8 @@
 
+
+
 import React, { useState } from 'react';
-import type { Store, Website, WebTemplate } from '../../types';
+import type { Store, Website, WebTemplate, BlockDefinition } from '../../types';
 import { GlobeAltIcon, PencilIcon, EyeIcon, PlusIcon, LayoutIcon, CheckCircleIcon } from '../icons/Icons';
 import SiteEditor from './SiteEditor';
 import { SUBSCRIPTION_PLANS } from '../../data/subscriptionPlans';
@@ -9,77 +11,11 @@ import UpgradeModal from '../UpgradeModal';
 interface WebsiteBuilderProps {
     store: Store;
     updateStore: (data: Partial<Store>) => void;
+    availableTemplates: WebTemplate[];
+    availableBlocks: BlockDefinition[];
 }
 
-const TEMPLATES: WebTemplate[] = [
-    {
-        id: 'default-store',
-        name: 'متجر أساسي',
-        type: 'store',
-        isPremium: false,
-        thumbnail: 'https://placehold.co/300x200/e2e8f0/1e293b?text=Basic+Store',
-        defaultTheme: { primaryColor: '#4f46e5', secondaryColor: '#10b981', fontFamily: 'Tajawal' },
-        defaultPages: [
-            {
-                id: 'home',
-                slug: '/',
-                title: 'الرئيسية',
-                isHome: true,
-                blocks: [
-                    { id: 'h1', type: 'hero', content: { title: `أهلاً بك في متجرنا`, subtitle: 'أفضل المنتجات بأفضل الأسعار', buttonText: 'تسوق الآن' } },
-                    { id: 'p1', type: 'product_grid', content: { title: 'منتجات مختارة', limit: 4 } },
-                    { id: 'c1', type: 'contact_form', content: { title: 'تواصل معنا' } }
-                ]
-            }
-        ]
-    },
-    {
-        id: 'company-simple',
-        name: 'تعريفي بسيط',
-        type: 'company',
-        isPremium: false,
-        thumbnail: 'https://placehold.co/300x200/e2e8f0/1e293b?text=Simple+Company',
-        defaultTheme: { primaryColor: '#2563eb', secondaryColor: '#64748b', fontFamily: 'Tajawal' },
-        defaultPages: [
-            {
-                id: 'home',
-                slug: '/',
-                title: 'الرئيسية',
-                isHome: true,
-                blocks: [
-                    { id: 'h1', type: 'hero', content: { title: `خدمات احترافية`, subtitle: 'نقدم حلولاً متكاملة لأعمالك', buttonText: 'اعرف المزيد' } },
-                    { id: 'f1', type: 'features', content: { title: 'خدماتنا' } },
-                    { id: 'c1', type: 'contact_form', content: { title: 'اطلب استشارة' } }
-                ]
-            }
-        ]
-    },
-    {
-        id: 'premium-store',
-        name: 'متجر احترافي',
-        type: 'store',
-        isPremium: true,
-        thumbnail: 'https://placehold.co/300x200/facc15/854d0e?text=PRO+Store',
-        defaultTheme: { primaryColor: '#000000', secondaryColor: '#f59e0b', fontFamily: 'Tajawal' },
-        defaultPages: [
-            {
-                id: 'home',
-                slug: '/',
-                title: 'الرئيسية',
-                isHome: true,
-                blocks: [
-                    { id: 'h1', type: 'hero', content: { title: `تسوق بلا حدود`, subtitle: 'تجربة شراء فريدة ومميزة', buttonText: 'ابدأ التسوق' } },
-                    { id: 'ic1', type: 'image_carousel', content: { title: 'عروض خاصة', images: ['https://placehold.co/800x400/222/fff?text=Offer+1', 'https://placehold.co/800x400/333/fff?text=Offer+2'] } },
-                    { id: 'p1', type: 'product_grid', content: { title: 'الأكثر مبيعاً', limit: 8 } },
-                    { id: 't1', type: 'testimonials', content: { title: 'ماذا يقول عملاؤنا', items: [{name: 'عميل مميز', text: 'تجربة رائعة!', role: 'مشتري'}] } },
-                    { id: 'f1', type: 'footer', content: { copyright: '© 2024 Pro Store', columns: [] } }
-                ]
-            }
-        ]
-    }
-];
-
-const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore }) => {
+const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore, availableTemplates, availableBlocks }) => {
     const [view, setView] = useState<'dashboard' | 'editor' | 'wizard'>('dashboard');
     const [selectedType, setSelectedType] = useState<'store' | 'company' | null>(null);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -121,7 +57,7 @@ const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore }) =
     };
 
     if (view === 'editor' && store.website) {
-        return <SiteEditor website={store.website} store={store} onSave={(w) => { updateStore({ website: w }); setView('dashboard'); }} onCancel={() => setView('dashboard')} />;
+        return <SiteEditor website={store.website} store={store} availableBlocks={availableBlocks} onSave={(w) => { updateStore({ website: w }); setView('dashboard'); }} onCancel={() => setView('dashboard')} />;
     }
 
     return (
@@ -167,7 +103,7 @@ const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore }) =
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {TEMPLATES.filter(t => t.type === selectedType).map(template => {
+                        {availableTemplates.filter(t => t.type === selectedType).map(template => {
                             const isLocked = template.isPremium && !currentPlan.features.premiumTemplates;
                             return (
                                 <div key={template.id} className="border rounded-xl overflow-hidden hover:shadow-xl transition group relative">
@@ -194,6 +130,9 @@ const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore }) =
                                 </div>
                             );
                         })}
+                         {availableTemplates.filter(t => t.type === selectedType).length === 0 && (
+                             <p className="text-gray-500 col-span-3 text-center">لا توجد قوالب متاحة لهذا النوع.</p>
+                         )}
                     </div>
                 </div>
             )}

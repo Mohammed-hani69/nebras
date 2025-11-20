@@ -30,9 +30,9 @@ import StoreSystemSupport from './components/StoreSystemSupport';
 import WebsiteBuilder from './components/WebsiteBuilder/WebsiteBuilder';
 import PublicSiteRenderer from './components/WebsiteBuilder/PublicSiteRenderer';
 
-import { initDB, loadStores, saveStores, loadAISettings, saveAISettings, loadMarketplaceSettings, saveMarketplaceSettings } from './services/db';
+import { initDB, loadStores, saveStores, loadAISettings, saveAISettings, loadMarketplaceSettings, saveMarketplaceSettings, loadBuilderAssets, saveBuilderAssets } from './services/db';
 import { getAiSuggestions } from './services/geminiService';
-import type { Store, Employee, AISettings, ModuleDefinition, CostCenter, ActivityLog, SupportTicket, TicketMessage, TicketStatus, JournalEntry, JournalLine, OnlineOrder } from './types';
+import type { Store, Employee, AISettings, ModuleDefinition, CostCenter, ActivityLog, SupportTicket, TicketMessage, TicketStatus, JournalEntry, JournalLine, OnlineOrder, WebTemplate, BlockDefinition } from './types';
 
 const DEFAULT_MODULES: ModuleDefinition[] = [
     { id: 'dashboard', label: 'لوحة التحكم', description: 'نظرة عامة على أداء المتجر', price: 0, category: 'basic', isCore: true, isVisible: true },
@@ -70,6 +70,64 @@ const DEFAULT_AI_SETTINGS: AISettings = {
     systemInstructions: 'أنت مساعد ذكي في نظام إدارة موارد المؤسسات (ERP) المخصص لمتاجر التجزئة والصيانة...'
 };
 
+// --- Default Builder Assets ---
+const DEFAULT_TEMPLATES: WebTemplate[] = [
+    {
+        id: 'default-store',
+        name: 'متجر أساسي',
+        type: 'store',
+        isPremium: false,
+        thumbnail: 'https://placehold.co/300x200/e2e8f0/1e293b?text=Basic+Store',
+        defaultTheme: { primaryColor: '#4f46e5', secondaryColor: '#10b981', fontFamily: 'Tajawal' },
+        defaultPages: [
+            {
+                id: 'home',
+                slug: '/',
+                title: 'الرئيسية',
+                isHome: true,
+                blocks: [
+                    { id: 'h1', type: 'hero', content: { title: `أهلاً بك في متجرنا`, subtitle: 'أفضل المنتجات بأفضل الأسعار', buttonText: 'تسوق الآن' } },
+                    { id: 'p1', type: 'product_grid', content: { title: 'منتجات مختارة', limit: 4 } },
+                    { id: 'c1', type: 'contact_form', content: { title: 'تواصل معنا' } }
+                ]
+            }
+        ]
+    },
+    {
+        id: 'company-simple',
+        name: 'تعريفي بسيط',
+        type: 'company',
+        isPremium: false,
+        thumbnail: 'https://placehold.co/300x200/e2e8f0/1e293b?text=Simple+Company',
+        defaultTheme: { primaryColor: '#2563eb', secondaryColor: '#64748b', fontFamily: 'Tajawal' },
+        defaultPages: [
+            {
+                id: 'home',
+                slug: '/',
+                title: 'الرئيسية',
+                isHome: true,
+                blocks: [
+                    { id: 'h1', type: 'hero', content: { title: `خدمات احترافية`, subtitle: 'نقدم حلولاً متكاملة لأعمالك', buttonText: 'اعرف المزيد' } },
+                    { id: 'f1', type: 'features', content: { title: 'خدماتنا' } },
+                    { id: 'c1', type: 'contact_form', content: { title: 'اطلب استشارة' } }
+                ]
+            }
+        ]
+    }
+];
+
+const DEFAULT_BLOCK_DEFINITIONS: BlockDefinition[] = [
+    { id: 'hero-def', type: 'hero', label: 'واجهة رئيسية (Hero)', icon: '🖼️', category: 'marketing', isPremium: false, defaultContent: { title: 'عنوان رئيسي جديد', subtitle: 'أضف وصفاً جذاباً هنا', buttonText: 'اضغط هنا' }, defaultStyle: { padding: '2rem', backgroundColor: '#ffffff', textAlign: 'center' } },
+    { id: 'text-def', type: 'text', label: 'محتوى نصي', icon: '📝', category: 'basic', isPremium: false, defaultContent: { text: 'اكتب النص الخاص بك هنا...' }, defaultStyle: { padding: '2rem', backgroundColor: '#ffffff' } },
+    { id: 'product-grid-def', type: 'product_grid', label: 'شبكة منتجات', icon: '🛍️', category: 'commerce', isPremium: false, defaultContent: { title: 'منتجات مختارة', limit: 4 }, defaultStyle: { padding: '2rem' } },
+    { id: 'features-def', type: 'features', label: 'المميزات والخدمات', icon: '✨', category: 'marketing', isPremium: false, defaultContent: { title: 'مميزاتنا' }, defaultStyle: { padding: '2rem' } },
+    { id: 'contact-form-def', type: 'contact_form', label: 'نموذج تواصل', icon: '📧', category: 'basic', isPremium: false, defaultContent: { title: 'تواصل معنا' }, defaultStyle: { padding: '2rem' } },
+    { id: 'footer-def', type: 'footer', label: 'تذييل الصفحة', icon: '🦶', category: 'basic', isPremium: false, defaultContent: { copyright: `© ${new Date().getFullYear()} جميع الحقوق محفوظة.` }, defaultStyle: { backgroundColor: '#111827', color: '#ffffff' } },
+    // Premium
+    { id: 'video-def', type: 'video', label: 'مشغل فيديو', icon: '🎬', category: 'marketing', isPremium: true, defaultContent: { videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', title: 'فيديو مميز' }, defaultStyle: { padding: '2rem' } },
+    { id: 'testimonials-def', type: 'testimonials', label: 'آراء العملاء', icon: '💬', category: 'marketing', isPremium: true, defaultContent: { title: 'آراء العملاء', items: [{name: 'عميل', text: 'خدمة رائعة', role: 'مشتري'}] }, defaultStyle: { padding: '2rem' } },
+];
+
 const App: React.FC = () => {
   const [stores, setStores] = useState<Store[]>([]);
   const [currentStore, setCurrentStore] = useState<Store | null>(null);
@@ -80,6 +138,10 @@ const App: React.FC = () => {
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
   const [isDbInitialized, setIsDbInitialized] = useState(false);
   
+  // Builder Assets State
+  const [websiteTemplates, setWebsiteTemplates] = useState<WebTemplate[]>(DEFAULT_TEMPLATES);
+  const [websiteBlocks, setWebsiteBlocks] = useState<BlockDefinition[]>(DEFAULT_BLOCK_DEFINITIONS);
+
   // Public view state
   const [viewingPublicSite, setViewingPublicSite] = useState<{storeId: string} | null>(null);
 
@@ -92,6 +154,7 @@ const App: React.FC = () => {
         const loadedStores = await loadStores();
         const loadedAiSettings = await loadAISettings();
         const loadedMarketplace = await loadMarketplaceSettings();
+        const loadedBuilderAssets = await loadBuilderAssets();
         
         if (loadedStores && loadedStores.length > 0) {
              // --- DATA MIGRATION / FIX ---
@@ -214,6 +277,16 @@ const App: React.FC = () => {
             });
             setMarketplaceModules(mergedModules);
         }
+        
+        if (loadedBuilderAssets) {
+             if (loadedBuilderAssets.templates && loadedBuilderAssets.templates.length > 0) {
+                 setWebsiteTemplates(loadedBuilderAssets.templates);
+             }
+             if (loadedBuilderAssets.blocks && loadedBuilderAssets.blocks.length > 0) {
+                 setWebsiteBlocks(loadedBuilderAssets.blocks);
+             }
+        }
+
       } catch (error) {
         console.error("DB Initialization Failed:", error);
       }
@@ -249,6 +322,14 @@ const App: React.FC = () => {
   useEffect(() => {
       if (isDbInitialized) saveMarketplaceSettings(marketplaceModules);
   }, [marketplaceModules, isDbInitialized]);
+
+  // Persist Builder Assets
+  useEffect(() => {
+      if (isDbInitialized) {
+          saveBuilderAssets(websiteTemplates, websiteBlocks);
+      }
+  }, [websiteTemplates, websiteBlocks, isDbInitialized]);
+
 
   // --- Login Logic ---
   const handleLogin = (username: string, password: string): boolean => {
@@ -479,6 +560,10 @@ const App: React.FC = () => {
               onUpdateAISettings={setAiSettings}
               marketplaceModules={marketplaceModules}
               onUpdateMarketplaceModule={(updatedMod) => setMarketplaceModules(prev => prev.map(m => m.id === updatedMod.id ? updatedMod : m))}
+              initialTemplates={websiteTemplates}
+              initialBlocks={websiteBlocks}
+              onUpdateTemplates={setWebsiteTemplates}
+              onUpdateBlocks={setWebsiteBlocks}
           />
       );
   }
@@ -836,6 +921,8 @@ const App: React.FC = () => {
             <WebsiteBuilder 
                 store={currentStore}
                 updateStore={updateStorePartial}
+                availableTemplates={websiteTemplates}
+                availableBlocks={websiteBlocks}
             />
         )}
       </main>

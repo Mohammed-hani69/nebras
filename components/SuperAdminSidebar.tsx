@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { NebrasLogo, CubeIcon, BanknotesIcon, LogoutIcon, ChartPieIcon, CogIcon, StoreIcon, ServerStackIcon, ShieldCheckIcon, GlobeAltIcon, LifebuoyIcon } from './icons/Icons';
+import { NebrasLogo, CubeIcon, BanknotesIcon, LogoutIcon, ChartPieIcon, CogIcon, StoreIcon, ServerStackIcon, ShieldCheckIcon, GlobeAltIcon, LifebuoyIcon, LayoutIcon } from './icons/Icons';
 
 interface SuperAdminSidebarProps {
   activeView: string;
@@ -11,8 +11,9 @@ interface SuperAdminSidebarProps {
 const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ activeView, setActiveView, onLogout }) => {
   const navItems = [
     { id: 'management', label: 'إدارة المتاجر', icon: <CubeIcon /> },
+    { id: 'website-builder-admin', label: 'منشئ المواقع (Admin)', icon: <LayoutIcon /> },
     { id: 'monitor', label: 'مراقبة النظام', icon: <ServerStackIcon /> },
-    { id: 'support-center', label: 'مركز الدعم الفني', icon: <LifebuoyIcon /> }, // Added
+    { id: 'support-center', label: 'مركز الدعم الفني', icon: <LifebuoyIcon /> }, 
     { id: 'global-settings', label: 'إعدادات النظام العامة', icon: <GlobeAltIcon /> },
     { id: 'permissions', label: 'إدارة الصلاحيات', icon: <ShieldCheckIcon /> },
     { id: 'marketplace-settings', label: 'إدارة سوق المديولات', icon: <StoreIcon /> },
@@ -22,7 +23,7 @@ const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ activeView, setAc
   ];
 
   return (
-    <nav className="w-64 bg-gray-800 text-white p-5 flex flex-col justify-between h-screen sticky top-0 overflow-y-auto">
+    <nav className="w-64 bg-gray-800 text-white p-5 flex flex-col justify-between h-screen sticky top-0 overflow-y-auto custom-scrollbar">
       <div>
         <div className="flex items-center space-x-3 mb-10 px-2">
           <NebrasLogo />

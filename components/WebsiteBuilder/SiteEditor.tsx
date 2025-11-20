@@ -1,20 +1,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import type { Website, WebPage, WebBlock, Store } from '../../types';
-import { TrashIcon, PlusIcon, EyeIcon, CheckCircleIcon, LayoutIcon, CogIcon, ChartPieIcon, StoreIcon, ClipboardListIcon } from '../icons/Icons';
+import type { Website, WebPage, WebBlock, Store, BlockDefinition } from '../../types';
+import { TrashIcon, PlusIcon, EyeIcon, CheckCircleIcon, LayoutIcon, CogIcon, ChartPieIcon, StoreIcon, ClipboardListIcon, PhotoIcon, XMarkIcon } from '../icons/Icons';
 import { SUBSCRIPTION_PLANS } from '../../data/subscriptionPlans';
 import UpgradeModal from '../UpgradeModal';
 
 interface SiteEditorProps {
     website: Website;
     store: Store;
+    availableBlocks: BlockDefinition[];
     onSave: (updatedWebsite: Website) => void;
     onCancel: () => void;
 }
 
-const PREMIUM_BLOCKS = ['video', 'testimonials', 'faq', 'image_carousel'];
-
-const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCancel }) => {
+const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, availableBlocks, onSave, onCancel }) => {
     // --- History Management ---
     const [history, setHistory] = useState<Website[]>([]);
     const [future, setFuture] = useState<Website[]>([]);
@@ -83,19 +82,20 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
         pushToHistory(newSite);
     };
 
-    const addBlock = (type: WebBlock['type']) => {
+    const addBlock = (definition: BlockDefinition) => {
         // Check Premium Access
-        const isPremium = PREMIUM_BLOCKS.includes(type);
-        if (isPremium && !currentPlan.features.premiumBlocks) {
+        if (definition.isPremium && !currentPlan.features.premiumBlocks) {
             setShowUpgradeModal(true);
             return;
         }
 
         const newBlock: WebBlock = {
             id: `blk-${Date.now()}`,
-            type,
-            content: getDefaultContent(type),
-            style: { padding: '2rem', backgroundColor: '#ffffff', textAlign: 'center' }
+            type: definition.type,
+            category: definition.category,
+            isPremium: definition.isPremium,
+            content: JSON.parse(JSON.stringify(definition.defaultContent)), // Deep copy
+            style: JSON.parse(JSON.stringify(definition.defaultStyle))
         };
         const newSite = {
             ...currentSite,
@@ -133,23 +133,6 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
         pushToHistory(newSite);
     };
 
-    const getDefaultContent = (type: string) => {
-        switch(type) {
-            case 'hero': return { title: 'عنوان رئيسي جديد', subtitle: 'أضف وصفاً جذاباً هنا', buttonText: 'اضغط هنا' };
-            case 'text': return { text: 'اكتب النص الخاص بك هنا...' };
-            case 'product_grid': return { title: 'منتجات مختارة', limit: 4 };
-            case 'contact_form': return { title: 'تواصل معنا' };
-            case 'features': return { title: 'مميزاتنا' };
-            case 'image_carousel': return { title: 'معرض الصور', images: ['https://placehold.co/800x400/e2e8f0/1e293b?text=Slide+1', 'https://placehold.co/800x400/e2e8f0/1e293b?text=Slide+2'] };
-            case 'video': return { videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', title: 'فيديو مميز' };
-            case 'testimonials': return { title: 'آراء العملاء', items: [{name: 'أحمد محمد', text: 'خدمة ممتازة وسريعة!', role: 'عميل'}, {name: 'سارة علي', text: 'منتجات عالية الجودة.', role: 'عميل'}] };
-            case 'faq': return { title: 'الأسئلة الشائعة', items: [{q: 'كم يستغرق الشحن؟', a: 'من 3 إلى 5 أيام عمل.'}, {q: 'هل يوجد استرجاع؟', a: 'نعم، خلال 14 يوم.'}] };
-            case 'cta': return { title: 'لا تتردد في التواصل معنا', subtitle: 'فريقنا جاهز للرد على استفساراتكم', buttonText: 'تواصل الآن' };
-            case 'footer': return { copyright: `© ${new Date().getFullYear()} جميع الحقوق محفوظة.`, columns: [{title: 'روابط', links: ['الرئيسية', 'من نحن']}, {title: 'تواصل', links: ['اتصل بنا', 'واتساب']}] };
-            default: return {};
-        }
-    };
-
     const handleSave = () => {
         setIsSaving(true);
         setTimeout(() => {
@@ -175,6 +158,161 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
             reorderBlocks(draggedBlockIndex, index);
             setDraggedBlockIndex(null);
         }
+    };
+
+    // --- Helper: Smart Input Renderer ---
+    const renderInputControl = (key: string, value: any, onChange: (val: any) => void, level = 0) => {
+        const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+        
+        // 1. Boolean
+        if (typeof value === 'boolean') {
+            return (
+                <div className="flex items-center justify-between py-2" key={key}>
+                    <label className="text-xs font-medium text-gray-700 capitalize">{label}</label>
+                    <input 
+                        type="checkbox" 
+                        checked={value} 
+                        onChange={e => onChange(e.target.checked)}
+                        className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                    />
+                </div>
+            );
+        }
+
+        // 2. Image URL
+        if (key.toLowerCase().includes('image') || key.toLowerCase().includes('url') || key.toLowerCase().includes('src') || key.toLowerCase().includes('thumbnail')) {
+            return (
+                <div className="mb-3" key={key}>
+                    <label className="block text-xs font-medium text-gray-700 mb-1 capitalize">{label}</label>
+                    <div className="flex gap-2 items-center">
+                        {value && typeof value === 'string' && (
+                             <div className="w-10 h-10 flex-shrink-0 border rounded overflow-hidden bg-gray-100">
+                                 <img src={value} alt="" className="w-full h-full object-cover" />
+                             </div>
+                        )}
+                        <div className="relative flex-1">
+                            <input 
+                                type="text" 
+                                value={value} 
+                                onChange={e => onChange(e.target.value)}
+                                className="w-full p-2 pl-8 border rounded text-xs bg-gray-50 focus:ring-1 focus:ring-indigo-500"
+                                placeholder="https://..."
+                            />
+                            <span className="absolute left-2 top-2 text-gray-400"><PhotoIcon /></span>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // 3. Long Text
+        if (key.toLowerCase().includes('text') || key.toLowerCase().includes('desc') || key.toLowerCase().includes('message') || key.toLowerCase().includes('copyright')) {
+            return (
+                <div className="mb-3" key={key}>
+                    <label className="block text-xs font-medium text-gray-700 mb-1 capitalize">{label}</label>
+                    <textarea 
+                        value={value} 
+                        onChange={e => onChange(e.target.value)}
+                        className="w-full p-2 border rounded text-xs h-20 bg-gray-50 focus:ring-1 focus:ring-indigo-500"
+                    />
+                </div>
+            );
+        }
+
+        // 4. Number
+        if (typeof value === 'number') {
+             return (
+                <div className="mb-3" key={key}>
+                    <label className="block text-xs font-medium text-gray-700 mb-1 capitalize">{label}</label>
+                    <input 
+                        type="number" 
+                        value={value} 
+                        onChange={e => onChange(parseFloat(e.target.value))}
+                        className="w-full p-2 border rounded text-xs bg-gray-50 focus:ring-1 focus:ring-indigo-500"
+                    />
+                </div>
+            );
+        }
+
+        // 5. Default String
+        return (
+            <div className="mb-3" key={key}>
+                <label className="block text-xs font-medium text-gray-700 mb-1 capitalize">{label}</label>
+                <input 
+                    type="text" 
+                    value={value} 
+                    onChange={e => onChange(e.target.value)}
+                    className="w-full p-2 border rounded text-xs bg-gray-50 focus:ring-1 focus:ring-indigo-500"
+                />
+            </div>
+        );
+    };
+
+    const renderArrayControl = (key: string, array: any[], onChange: (newArray: any[]) => void) => {
+        const addItem = () => {
+            // Clone the structure of the first item or create an empty object/string
+            let newItem;
+            if (array.length > 0) {
+                const template = array[0];
+                if (typeof template === 'object') {
+                     newItem = Object.keys(template).reduce((acc, k) => ({...acc, [k]: typeof template[k] === 'string' ? 'New Item' : ''}), {});
+                } else {
+                    newItem = "New Item";
+                }
+            } else {
+                 // Heuristic guess if array is empty
+                 if (key === 'images') newItem = "https://placehold.co/600x400";
+                 else newItem = { title: "New Item", text: "Description" };
+            }
+            onChange([...array, newItem]);
+        };
+
+        const removeItem = (idx: number) => {
+            const newArr = array.filter((_, i) => i !== idx);
+            onChange(newArr);
+        };
+
+        const updateItem = (idx: number, newVal: any) => {
+            const newArr = [...array];
+            newArr[idx] = newVal;
+            onChange(newArr);
+        };
+
+        return (
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200" key={key}>
+                <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-bold text-gray-700 uppercase">{key}</label>
+                    <button onClick={addItem} className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-200 flex items-center gap-1">
+                        <PlusIcon /> إضافة
+                    </button>
+                </div>
+                <div className="space-y-2">
+                    {array.map((item, idx) => (
+                        <div key={idx} className="relative p-2 bg-white border rounded-md group">
+                            <button 
+                                onClick={() => removeItem(idx)}
+                                className="absolute top-2 left-2 text-red-400 hover:text-red-600 z-10"
+                            >
+                                <XMarkIcon />
+                            </button>
+                            
+                            {typeof item === 'object' ? (
+                                <div className="pt-4 pl-6">
+                                    {Object.keys(item).map(subKey => 
+                                        renderInputControl(subKey, item[subKey], (val) => updateItem(idx, { ...item, [subKey]: val }))
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="pl-6">
+                                    {renderInputControl(`Item ${idx+1}`, item, (val) => updateItem(idx, val))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    {array.length === 0 && <p className="text-xs text-center text-gray-400 py-2">لا توجد عناصر.</p>}
+                </div>
+            </div>
+        );
     };
 
     // --- Renderers ---
@@ -215,8 +353,8 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                     </div>
                 )}
 
-                {/* Content Rendering */}
-                {block.type === 'hero' && (
+                {/* Content Rendering - DYNAMIC based on Type String */}
+                {block.type === 'hero' ? (
                     <div className="space-y-4">
                         <h2 className="text-4xl font-bold leading-tight">{block.content.title}</h2>
                         <p className="text-xl opacity-90">{block.content.subtitle}</p>
@@ -224,13 +362,11 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                             {block.content.buttonText}
                         </button>
                     </div>
-                )}
-                {block.type === 'text' && (
+                ) : block.type === 'text' ? (
                     <div className="prose max-w-none mx-auto">
                         <p>{block.content.text}</p>
                     </div>
-                )}
-                {block.type === 'product_grid' && (
+                ) : block.type === 'product_grid' ? (
                     <div className="w-full">
                         <h3 className="text-2xl font-bold mb-6">{block.content.title}</h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
@@ -243,8 +379,7 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                             ))}
                         </div>
                     </div>
-                )}
-                {block.type === 'features' && (
+                ) : block.type === 'features' ? (
                     <div>
                          <h3 className="text-2xl font-bold mb-8">{block.content.title}</h3>
                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -257,8 +392,7 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                             ))}
                         </div>
                     </div>
-                )}
-                {block.type === 'contact_form' && (
+                ) : block.type === 'contact_form' ? (
                     <div className="max-w-md mx-auto p-6 border rounded-xl bg-white shadow-sm">
                         <h3 className="text-xl font-bold mb-4">{block.content.title}</h3>
                         <div className="space-y-3 text-left">
@@ -268,8 +402,7 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                             <div className="h-10 bg-indigo-600 rounded w-full"></div>
                         </div>
                     </div>
-                )}
-                {block.type === 'image_carousel' && (
+                ) : block.type === 'image_carousel' ? (
                     <div>
                         <h3 className="text-xl font-bold mb-4">{block.content.title}</h3>
                         <div className="flex gap-2 overflow-hidden">
@@ -280,16 +413,15 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                             ))}
                         </div>
                     </div>
-                )}
-                 {block.type === 'video' && (
+                ) : block.type === 'video' ? (
                     <div className="max-w-2xl mx-auto">
                         <h3 className="text-xl font-bold mb-4">{block.content.title}</h3>
                         <div className="aspect-w-16 aspect-h-9 bg-black rounded-xl flex items-center justify-center text-white">
-                            [Video Player Placeholder]
+                             <img src={`https://img.youtube.com/vi/${block.content.videoUrl?.split('/').pop()}/0.jpg`} className="w-full h-full object-cover opacity-50" />
+                             <span className="absolute">▶ Play</span>
                         </div>
                     </div>
-                )}
-                {block.type === 'testimonials' && (
+                ) : block.type === 'testimonials' ? (
                     <div>
                         <h3 className="text-2xl font-bold mb-8">{block.content.title}</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -302,8 +434,7 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                             ))}
                         </div>
                     </div>
-                )}
-                {block.type === 'faq' && (
+                ) : block.type === 'faq' ? (
                     <div className="max-w-2xl mx-auto">
                         <h3 className="text-2xl font-bold mb-6">{block.content.title}</h3>
                         <div className="space-y-3">
@@ -317,8 +448,7 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                             ))}
                         </div>
                     </div>
-                )}
-                {block.type === 'cta' && (
+                ) : block.type === 'cta' ? (
                     <div className="bg-indigo-600 text-white p-10 rounded-2xl text-center">
                         <h2 className="text-3xl font-bold mb-2">{block.content.title}</h2>
                         <p className="text-indigo-100 mb-6">{block.content.subtitle}</p>
@@ -326,8 +456,7 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                             {block.content.buttonText}
                         </button>
                     </div>
-                )}
-                {block.type === 'footer' && (
+                ) : block.type === 'footer' ? (
                     <div className="bg-gray-900 text-white p-8 mt-4">
                         <div className="grid grid-cols-3 gap-8 mb-8 text-right">
                             {(block.content.columns || []).map((col: any, i: number) => (
@@ -344,6 +473,14 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                         <div className="text-center text-xs text-gray-500 border-t border-gray-800 pt-4">
                             {block.content.copyright}
                         </div>
+                    </div>
+                ) : (
+                    // Fallback for unknown block types (e.g. Custom AI Blocks)
+                    <div className="border p-4 rounded text-center">
+                         <h3 className="font-bold text-lg">{block.content.title || block.type}</h3>
+                         <div className="text-xs text-gray-500 mt-2 overflow-hidden text-left">
+                             <pre>{JSON.stringify(block.content, null, 2)}</pre>
+                         </div>
                     </div>
                 )}
             </div>
@@ -427,26 +564,12 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
                             <p className="text-xs text-gray-500 mb-2">اضغط لإضافة عنصر للصفحة</p>
-                            {[
-                                { type: 'hero', label: 'واجهة رئيسية (Hero)', icon: '🖼️' },
-                                { type: 'text', label: 'محتوى نصي', icon: '📝' },
-                                { type: 'product_grid', label: 'شبكة منتجات', icon: '🛍️' },
-                                { type: 'features', label: 'المميزات والخدمات', icon: '✨' },
-                                { type: 'image_carousel', label: 'معرض صور', icon: '🎠' },
-                                { type: 'video', label: 'مشغل فيديو', icon: '🎬' },
-                                { type: 'testimonials', label: 'آراء العملاء', icon: '💬' },
-                                { type: 'faq', label: 'الأسئلة الشائعة', icon: '❓' },
-                                { type: 'cta', label: 'نداء للإجراء (CTA)', icon: '📣' },
-                                { type: 'contact_form', label: 'نموذج تواصل', icon: '📧' },
-                                { type: 'footer', label: 'تذييل الصفحة', icon: '🦶' }
-                            ].map((item) => {
-                                const isPremium = PREMIUM_BLOCKS.includes(item.type);
-                                const isLocked = isPremium && !currentPlan.features.premiumBlocks;
-                                
+                            {availableBlocks.map((item) => {
+                                const isLocked = item.isPremium && !currentPlan.features.premiumBlocks;
                                 return (
                                 <button 
-                                    key={item.type}
-                                    onClick={() => addBlock(item.type as any)}
+                                    key={item.id}
+                                    onClick={() => addBlock(item)}
                                     className={`w-full flex items-center justify-between p-3 border rounded-lg transition text-right group relative ${isLocked ? 'bg-gray-50 border-gray-200 opacity-70' : 'bg-white border-gray-200 hover:border-indigo-500 hover:shadow-md'}`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -515,50 +638,26 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, onSave, onCance
                                     <div className="space-y-3">
                                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-1">المحتوى</h4>
                                         {Object.keys(block.content).map(key => {
-                                            // Handle array content differently
+                                            // Array Handling (Nested Lists)
                                             if (Array.isArray(block.content[key])) {
                                                 return (
                                                     <div key={key}>
-                                                        <label className="block text-xs font-bold text-gray-600 mb-1 capitalize">{key} (قائمة)</label>
-                                                        <textarea 
-                                                            value={JSON.stringify(block.content[key], null, 2)} 
-                                                            onChange={e => {
-                                                                try {
-                                                                    const newVal = JSON.parse(e.target.value);
-                                                                    updateBlock(block.id, { content: { [key]: newVal } });
-                                                                } catch(err) { /* ignore parse error while typing */ }
-                                                            }}
-                                                            className="w-full p-2 border rounded text-xs h-32 font-mono bg-gray-50 focus:ring-1 focus:ring-indigo-500"
-                                                            placeholder="Edit JSON here..."
-                                                        />
-                                                        <p className="text-[10px] text-gray-400 mt-1">قم بتعديل البيانات بتنسيق JSON</p>
+                                                        {renderArrayControl(key, block.content[key], (newArr) => updateBlock(block.id, { content: { [key]: newArr } }))}
                                                     </div>
                                                 );
                                             }
-
+                                            
+                                            // Primitive Values
                                             return (
-                                            <div key={key}>
-                                                <label className="block text-xs font-bold text-gray-600 mb-1 capitalize">{key}</label>
-                                                {key.includes('text') || key.includes('desc') || key.includes('copyright') ? (
-                                                    <textarea 
-                                                        value={block.content[key]} 
-                                                        onChange={e => updateBlock(block.id, { content: { [key]: e.target.value } })}
-                                                        className="w-full p-2 border rounded text-sm h-20 focus:ring-1 focus:ring-indigo-500"
-                                                    />
-                                                ) : (
-                                                    <input 
-                                                        type={typeof block.content[key] === 'number' ? 'number' : 'text'} 
-                                                        value={block.content[key]} 
-                                                        onChange={e => updateBlock(block.id, { content: { [key]: e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value } })}
-                                                        className="w-full p-2 border rounded text-sm focus:ring-1 focus:ring-indigo-500"
-                                                    />
-                                                )}
-                                            </div>
-                                        )})}
+                                                <div key={key}>
+                                                    {renderInputControl(key, block.content[key], (val) => updateBlock(block.id, { content: { [key]: val } }))}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
 
                                     {/* Design Section */}
-                                    <div className="space-y-3">
+                                    <div className="space-y-3 pt-4 border-t">
                                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b pb-1">التصميم</h4>
                                         
                                         <div>

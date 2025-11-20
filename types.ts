@@ -41,13 +41,26 @@ export interface GlobalSettings {
 // -----------------------
 
 // --- Website Builder Types ---
-export type BlockType = 'hero' | 'text' | 'image' | 'product_grid' | 'contact_form' | 'features' | 'footer' | 'image_carousel' | 'video' | 'testimonials' | 'faq' | 'cta';
+export type BlockType = string; // Changed from literal union to string to allow dynamic types
+
+export interface BlockDefinition {
+    id: string;
+    type: string; // e.g., 'hero', 'text'
+    label: string;
+    icon: string; // Emoji or Icon Name
+    category: 'basic' | 'marketing' | 'commerce' | 'advanced';
+    isPremium: boolean;
+    defaultContent: any; // JSON structure for initial content
+    defaultStyle: any; // JSON structure for initial style
+}
 
 export interface WebBlock {
     id: string;
     type: BlockType;
     content: any; // Dynamic props based on type (e.g., title, image url, product category)
     style?: any; // CSS overrides
+    category?: 'basic' | 'marketing' | 'commerce' | 'advanced'; // Admin category
+    isPremium?: boolean;
 }
 
 export interface WebPage {
@@ -71,12 +84,14 @@ export interface Website {
     id: string;
     storeId: string;
     subdomain: string; // e.g., "myshop" -> myshop.nebras.com
+    customDomain?: string;
+    customDomainStatus?: 'pending' | 'active' | 'failed';
     title: string;
     type: 'company' | 'store';
     templateId: string;
     theme: WebTheme;
     pages: WebPage[];
-    status: 'draft' | 'published';
+    status: 'draft' | 'published' | 'suspended';
     settings: {
         shippingRate: number;
         allowCashOnDelivery: boolean;
@@ -84,6 +99,7 @@ export interface Website {
         contactPhone: string;
         whatsappNumber?: string;
     };
+    storageUsed?: number; // MB
 }
 
 export interface WebTemplate {
@@ -94,6 +110,7 @@ export interface WebTemplate {
     type: 'company' | 'store';
     defaultPages: WebPage[];
     defaultTheme: WebTheme;
+    accessLevel?: 'free' | 'basic' | 'pro' | 'enterprise';
 }
 
 export interface OnlineOrder {
@@ -107,6 +124,62 @@ export interface OnlineOrder {
     status: 'new' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
     date: string;
     paymentMethod: 'cod' | 'online';
+}
+
+// Admin Specific Builder Types
+export interface GlobalMediaItem {
+    id: string;
+    url: string;
+    name: string;
+    type: 'image' | 'icon' | 'illustration';
+    accessLevel: 'free' | 'premium';
+}
+
+export interface BuilderAuditLog {
+    id: string;
+    timestamp: string;
+    adminUser: string;
+    action: string;
+    target?: string;
+    details?: string;
+    storeName?: string;
+}
+
+export interface SEOTemplate {
+    id: string;
+    type: 'product' | 'blog' | 'home';
+    metaTitlePattern: string; // e.g. "{product_name} | {store_name}"
+    metaDescriptionPattern: string;
+}
+
+export interface BuilderPlan {
+    id: string;
+    name: string;
+    price: number;
+    limits: {
+        pages: number;
+        products: number;
+        storage: number; // MB
+    };
+    features: {
+        customDomain: boolean;
+        ssl: boolean;
+        builderAccess: boolean;
+        htmlCssAccess: boolean;
+    };
+    allowedTemplates: 'all' | string[]; // 'all' or array of IDs
+    allowedBlocks: 'all' | string[];
+}
+
+export interface DomainRequest {
+    id: string;
+    storeId: string;
+    storeName: string;
+    domain: string;
+    status: 'pending' | 'active' | 'rejected';
+    ssl: boolean;
+    dnsVerified: boolean;
+    requestedAt: string;
 }
 // -----------------------------
 
