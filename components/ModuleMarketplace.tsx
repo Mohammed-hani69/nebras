@@ -5,6 +5,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import type { ModuleDefinition, Store } from '../types';
 import { 
@@ -55,7 +57,10 @@ const ModuleMarketplace: React.FC<ModuleMarketplaceProps> = ({ availableModules,
     const [categoryFilter, setCategoryFilter] = useState('all');
 
     const filteredModules = availableModules.filter(mod => {
-        if (mod.isCore) return false;
+        // Filter out core modules AND modules hidden by Super Admin
+        // Check for isVisible !== false to support legacy data where it might be undefined (default true)
+        if (mod.isCore || mod.isVisible === false) return false;
+        
         const matchesSearch = mod.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
                               (mod.aiShortDescription && mod.aiShortDescription.toLowerCase().includes(searchTerm.toLowerCase()));
         const matchesCategory = categoryFilter === 'all' || mod.category === categoryFilter;

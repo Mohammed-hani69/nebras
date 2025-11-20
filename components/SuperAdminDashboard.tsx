@@ -7,6 +7,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings, Account } from '../types';
 import SuperAdminSidebar from './SuperAdminSidebar';
@@ -724,6 +726,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                     stores={stores} 
                     aiSettings={aiSettings} 
                     actions={aiActions}
+                    marketplaceModules={marketplaceModules}
+                    onUpdateMarketplaceModule={onUpdateMarketplaceModule}
                 />
             </main>
         </div>

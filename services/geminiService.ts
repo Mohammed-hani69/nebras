@@ -1,6 +1,11 @@
 
+
+
+
+
+
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
-import type { Store, AISettings, Lead, Customer } from '../types';
+import type { Store, AISettings, Lead, Customer, Conversation, ModuleDefinition } from '../types';
 
 const API_KEY = process.env.API_KEY;
 
@@ -25,23 +30,29 @@ export const getAiInsight = async (query: string, store: Store, aiSettings: AISe
     });
 
     const prompt = `
-      أنت محلل بيانات خبير ومساعد ذكي في محل لبيع وإصلاح الموبايلات.
+      أنت محلل بيانات خبير ومساعد ذكي في نظام "نبراس" لإدارة المتاجر.
       مهمتك هي تحليل البيانات التالية وتقديم إجابات ورؤى مفيدة باللغة العربية.
-      كن موجزًا ومباشرًا في إجابتك.
-      تاريخ اليوم هو: ${new Date().toLocaleDateString('ar-EG')}
+      
+      معلومات السياق:
+      - التاريخ والوقت الحالي: ${new Date().toLocaleString('ar-EG')}
+      - اسم المتجر: ${store.name}
 
       تعليمات النظام العامة: ${aiSettings.systemInstructions || 'لا توجد تعليمات عامة.'}
       تعليمات خاصة بهذا المتجر: ${store.aiInstructions || 'لا توجد تعليمات خاصة.'}
 
-      البيانات الحية المحدثة:
+      البيانات الحية المحدثة من النظام:
       1. المنتجات في المخزون (الكميات الحالية): ${JSON.stringify(simplifiedProducts, null, 2)}
-      2. سجل المبيعات: ${JSON.stringify(sales, null, 2)}
-      3. سجل خدمات الصيانة: ${JSON.stringify(services, null, 2)}
-      4. سجل المصروفات: ${JSON.stringify(expenses, null, 2)}
+      2. سجل المبيعات (أحدث 50 عملية): ${JSON.stringify(sales.slice(-50), null, 2)}
+      3. سجل خدمات الصيانة: ${JSON.stringify(services.slice(-50), null, 2)}
+      4. سجل المصروفات: ${JSON.stringify(expenses.slice(-50), null, 2)}
 
       سؤال المستخدم: "${query}"
 
-      الرجاء تقديم إجابة دقيقة بناءً على البيانات المحدثة أعلاه.
+      التعليمات:
+      - أجب بدقة بناءً على الأرقام المتاحة أعلاه.
+      - كن موجزًا ومباشرًا.
+      - إذا كان السؤال عن شيء غير موجود في البيانات، وضح ذلك بأدب.
+      - قم بتحليل الاتجاهات إذا طلب منك ذلك (مثل الأكثر مبيعًا، الأرباح، الخسائر).
     `;
 
     const response = await ai.models.generateContent({
@@ -54,11 +65,11 @@ export const getAiInsight = async (query: string, store: Store, aiSettings: AISe
       }
     });
     
-    return response.text;
+    return response.text || "عذرًا، لم أتمكن من توليد إجابة.";
 
   } catch (error) {
     console.error("Gemini API Error:", error);
-    throw new Error("Failed to get response from Gemini API.");
+    return "عذرًا، حدث خطأ أثناء الاتصال بالمساعد الذكي.";
   }
 };
 
@@ -262,29 +273,53 @@ const superAdminTools: FunctionDeclaration[] = [
             },
             required: ["message"]
         }
+    },
+    {
+        name: "toggle_module_visibility",
+        description: "تغيير حالة ظهور مديول في السوق (إخفاء أو إظهار). استخدم هذا عندما يطلب المدير إخفاء أو إظهار مديول.",
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                moduleId: { type: Type.STRING, description: "معرف المديول (id) مثل: hr-management, services, etc." },
+                isVisible: { type: Type.BOOLEAN, description: "true للإظهار، false للإخفاء" }
+            },
+            required: ["moduleId", "isVisible"]
+        }
     }
 ];
 
 export const processSuperAdminIntent = async (
     message: string, 
     stores: Store[], 
+    modules: ModuleDefinition[],
     aiSettings: AISettings
 ): Promise<{ text?: string, toolCall?: any }> => {
     try {
-        const storesSummary = stores.map(s => `${s.name} (${s.storeType})`).join(', ');
+        // Enhance context with rich data
+        const storesSummary = stores.map(s => {
+            const isExpired = new Date(s.subscriptionEndDate) < new Date();
+            return `- ${s.name} (ID: ${s.id}): ${isExpired ? 'منتهي' : 'نشط'}, النوع: ${s.storeType}`;
+        }).join('\n');
+
+        const modulesSummary = modules.map(m => `- ${m.label} (ID: ${m.id}): ${m.isVisible !== false ? 'ظاهر' : 'مخفي'} (${m.category})`).join('\n');
 
         const prompt = `
             أنت المساعد الشخصي الذكي للسوبر أدمن (مدير النظام) لنظام "نبراس".
-            لديك صلاحيات كاملة لإدارة النظام عبر استدعاء الوظائف (Tools).
+            لديك صلاحيات كاملة لإدارة النظام والتحكم في المتاجر والمديولات عبر استدعاء الوظائف (Tools).
             
-            معلومات السياق الحالية:
+            معلومات النظام الحية:
             - عدد المتاجر المسجلة: ${stores.length}
-            - قائمة المتاجر: ${storesSummary}
             - التاريخ: ${new Date().toLocaleDateString('ar-EG')}
+            
+            قائمة المتاجر:
+            ${storesSummary}
+
+            قائمة المديولات (سوق التطبيقات):
+            ${modulesSummary}
 
             تعليمات:
-            - إذا طلب المستخدم إجراءً (مثل إنشاء متجر، الانتقال لصفحة، إرسال رسالة)، استخدم الأداة المناسبة (Function Call).
-            - إذا كان السؤال استفساراً عاماً، أجب عليه بناءً على السياق.
+            - إذا طلب المستخدم إجراءً (مثل إنشاء متجر، التحكم في المديولات، إرسال رسالة)، استخدم الأداة المناسبة (Function Call).
+            - إذا كان السؤال استفساراً تحليلياً عن البيانات، أجب بدقة بناءً على السياق أعلاه.
             - تحدث بلهجة احترافية وودودة باللغة العربية.
             
             طلب المستخدم: "${message}"
@@ -306,7 +341,7 @@ export const processSuperAdminIntent = async (
             return { toolCall: functionCalls[0] };
         }
 
-        return { text: response.text };
+        return { text: response.text || "لم أفهم الطلب تماماً، هل يمكنك التوضيح؟" };
 
     } catch (error) {
         console.error("Gemini Super Admin Chat Error:", error);
@@ -444,5 +479,38 @@ export const analyzeFinancialStatements = async (trialBalance: any[], aiSettings
     } catch (error) {
         console.error("Gemini GL Analysis Error:", error);
         return "عذرًا، حدث خطأ أثناء تحليل القوائم المالية.";
+    }
+};
+
+// --- Customer Service AI Functions ---
+
+export const analyzeConversation = async (conversation: Conversation, aiSettings: AISettings): Promise<{ summary: string, sentiment: 'positive' | 'neutral' | 'negative', suggestedReply: string }> => {
+    try {
+        const chatHistory = conversation.messages.map(m => `${m.sender === 'user' ? 'العميل' : 'الدعم'}: ${m.content}`).join('\n');
+        const prompt = `
+            أنت مساعد ذكي في خدمة العملاء. قم بتحليل المحادثة التالية:
+            
+            سجل المحادثة:
+            ${chatHistory}
+            
+            المطلوب (رد بصيغة JSON فقط):
+            1. summary: تلخيص موجز للمحادثة والمشكلة (إن وجدت) في جملتين.
+            2. sentiment: شعور العميل (positive, neutral, negative).
+            3. suggestedReply: اقتراح لرد احترافي ومهذب يرسله موظف الدعم للعميل الآن.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: aiSettings.model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                temperature: 0.3,
+            }
+        });
+
+        return JSON.parse(response.text);
+    } catch (error) {
+        console.error("Gemini CS Analysis Error:", error);
+        return { summary: "فشل التحليل", sentiment: "neutral", suggestedReply: "" };
     }
 };

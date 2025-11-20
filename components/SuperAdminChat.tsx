@@ -1,13 +1,17 @@
 
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { processSuperAdminIntent } from '../services/geminiService';
-import type { Store, AISettings } from '../types';
+import type { Store, AISettings, ModuleDefinition } from '../types';
 import { BrainIcon, PaperAirplaneIcon, SparklesIcon } from './icons/Icons';
 import { aiAvatarBase64 } from '../assets/ai-avatar';
 
 interface SuperAdminChatProps {
     stores: Store[];
     aiSettings: AISettings;
+    marketplaceModules: ModuleDefinition[];
+    onUpdateMarketplaceModule: (module: ModuleDefinition) => void;
     actions: {
         createStore: (data: any) => void;
         navigate: (view: string) => void;
@@ -22,11 +26,11 @@ interface Message {
     type?: 'text' | 'action_result';
 }
 
-const SuperAdminChat: React.FC<SuperAdminChatProps> = ({ stores, aiSettings, actions }) => {
+const SuperAdminChat: React.FC<SuperAdminChatProps> = ({ stores, aiSettings, marketplaceModules, onUpdateMarketplaceModule, actions }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<Message[]>([
-        { id: '1', sender: 'ai', text: 'مرحباً بك أيها المدير! أنا هنا لمساعدتك في إدارة النظام. يمكنك أن تطلب مني تسجيل متجر جديد، الانتقال لصفحة معينة، أو إرسال تنبيهات.' }
+        { id: '1', sender: 'ai', text: 'مرحباً بك أيها المدير! أنا هنا لمساعدتك في إدارة النظام. يمكنك أن تطلب مني تسجيل متجر جديد، التحكم في المديولات، أو إرسال تنبيهات.' }
     ]);
     const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -48,7 +52,8 @@ const SuperAdminChat: React.FC<SuperAdminChatProps> = ({ stores, aiSettings, act
         setIsTyping(true);
 
         try {
-            const response = await processSuperAdminIntent(userMsg.text, stores, aiSettings);
+            // Pass modules to the intent processor
+            const response = await processSuperAdminIntent(userMsg.text, stores, marketplaceModules, aiSettings);
 
             if (response.toolCall) {
                 const tool = response.toolCall;
@@ -65,6 +70,14 @@ const SuperAdminChat: React.FC<SuperAdminChatProps> = ({ stores, aiSettings, act
                 } else if (tool.name === 'send_broadcast') {
                     actions.broadcast(args.message);
                     resultMsg = `📢 تم إرسال التعميم بنجاح: "${args.message}"`;
+                } else if (tool.name === 'toggle_module_visibility') {
+                    const moduleToUpdate = marketplaceModules.find(m => m.id === args.moduleId);
+                    if (moduleToUpdate) {
+                        onUpdateMarketplaceModule({ ...moduleToUpdate, isVisible: args.isVisible });
+                        resultMsg = `🛠️ تم ${args.isVisible ? 'إظهار' : 'إخفاء'} مديول "${moduleToUpdate.label}" في السوق بنجاح.`;
+                    } else {
+                        resultMsg = `⚠️ لم يتم العثور على مديول بالمعرف "${args.moduleId}".`;
+                    }
                 }
 
                 setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'ai', text: resultMsg, type: 'action_result' }]);
@@ -139,7 +152,7 @@ const SuperAdminChat: React.FC<SuperAdminChatProps> = ({ stores, aiSettings, act
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                            placeholder="اطلب شيئاً (مثلاً: سجل متجر جديد...)" 
+                            placeholder="اطلب شيئاً (مثلاً: أخفِ مديول الموارد البشرية...)" 
                             className="flex-1 p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                         />
                         <button 

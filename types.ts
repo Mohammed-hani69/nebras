@@ -1,4 +1,7 @@
 
+
+
+
 export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'installment';
 export type MovementType = 'sale' | 'purchase' | 'sale_return' | 'purchase_return' | 'initial' | 'adjustment';
 export type ReturnReason = 'defective' | 'wrong_item' | 'customer_dissatisfaction' | 'other';
@@ -131,6 +134,35 @@ export interface Lead {
     aiBestContactTime?: string;
 }
 // ----------------
+
+// --- Customer Service AI Types ---
+export interface CSMessage {
+    id: string;
+    sender: 'user' | 'agent' | 'bot';
+    content: string;
+    timestamp: string;
+}
+
+export interface Conversation {
+    id: string;
+    customerName: string;
+    customerPhone: string;
+    platform: 'whatsapp' | 'messenger' | 'other';
+    status: 'active' | 'closed';
+    messages: CSMessage[];
+    aiSummary?: string;
+    sentiment?: 'positive' | 'neutral' | 'negative';
+    lastActivity: string;
+}
+
+export interface BotSettings {
+    enableWhatsApp: boolean;
+    enableMessenger: boolean;
+    whatsappNumber?: string;
+    welcomeMessage: string;
+    autoReplyEnabled: boolean;
+}
+// --------------------------------
 
 export interface Product {
   id: string;
@@ -438,6 +470,7 @@ export interface ModuleDefinition {
     aiLongDescription?: string; // Generated full detail
     icon?: string;
     isCore?: boolean; // If true, cannot be disabled/sold separately
+    isVisible?: boolean; // Visibility flag for marketplace
 }
 
 export interface InstallmentPayment {
@@ -557,4 +590,7 @@ export interface Store {
   journalEntries: JournalEntry[];
   costCenters: CostCenter[];
   budgets: Budget[];
+  // Customer Service AI Data
+  csConversations?: Conversation[];
+  csBotSettings?: BotSettings;
 }

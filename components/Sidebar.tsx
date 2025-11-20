@@ -1,14 +1,6 @@
 
-
-
-
-
-
-
-
-
 import React, { useState } from 'react';
-import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, DocumentDuplicateIcon, ArrowPathRoundedSquareIcon, BellIcon, TicketIcon, BuildingLibraryIcon, BookOpenIcon } from './icons/Icons';
+import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, DocumentDuplicateIcon, ArrowPathRoundedSquareIcon, BellIcon, TicketIcon, BuildingLibraryIcon, BookOpenIcon, ChatBubbleLeftRightIcon } from './icons/Icons';
 
 interface UserWithPermissions {
   id: string;
@@ -48,6 +40,7 @@ const ICONS: { [key: string]: React.ReactNode } = {
     'support-ticketing': <TicketIcon />, // Icon for ticketing
     'treasury-banking': <BuildingLibraryIcon />, // Icon for Treasury
     'general-ledger': <BookOpenIcon />, // Icon for General Ledger
+    'customer-service-ai': <ChatBubbleLeftRightIcon />, // Icon for Customer Service AI
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLogout, navItems, unreadMessagesCount, unreadNotificationsCount = 0 }) => {
@@ -61,13 +54,9 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLo
     );
   };
   
-  // Manually inject 'notifications-center' into 'system' section if not present in navItems,
-  // but typically it should be passed. For now, I will render it explicitly or assume it is passed.
-  // Let's ensure it's rendered.
-
   const sections = [
     { id: 'main', title: 'رئيسي', items: navItems.filter(item => ['dashboard', 'inventory', 'pos', 'services'].includes(item.id)) },
-    { id: 'management', title: 'الإدارة', items: navItems.filter(item => ['customer-management', 'suppliers-management', 'hr-management', 'activity-log', 'support-ticketing'].includes(item.id)) },
+    { id: 'management', title: 'الإدارة', items: navItems.filter(item => ['customer-management', 'suppliers-management', 'hr-management', 'activity-log', 'support-ticketing', 'customer-service-ai'].includes(item.id)) },
     { id: 'finance', title: 'المالية والتقارير', items: navItems.filter(item => ['treasury-banking', 'general-ledger', 'invoicing', 'expenses', 'installments', 'returns-refunds', 'financial-reports', 'general-reports'].includes(item.id)) },
     { id: 'system', title: 'النظام', items: [...navItems.filter(item => ['ai-assistant', 'user-guide'].includes(item.id))] },
   ].filter(section => section.items.length > 0);
@@ -145,7 +134,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLo
                   {section.title}
                   <ChevronDownIcon />
                 </button>
-                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px]' : 'max-h-0'}`}>
+                {/* Increased max-height to prevent cutting off content in large sections like Finance */}
+                <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[1200px]' : 'max-h-0'}`}>
                     <ul className="space-y-1 pt-1 border-t border-slate-800">
                       {section.items.map(renderNavItem)}
                     </ul>

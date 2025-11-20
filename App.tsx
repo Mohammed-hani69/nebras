@@ -1,4 +1,10 @@
 
+
+
+
+
+
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Login from './components/Login';
 import Sidebar from './components/Sidebar';
@@ -25,32 +31,34 @@ import TreasuryBanking from './components/TreasuryBanking';
 import GeneralLedger from './components/GeneralLedger';
 import ModuleMarketplace from './components/ModuleMarketplace';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
+import CustomerServiceAI from './components/CustomerServiceAI'; // Import the new component
 
 import { initDB, loadStores, saveStores, loadAISettings, saveAISettings, loadMarketplaceSettings, saveMarketplaceSettings } from './services/db';
 import { getAiSuggestions } from './services/geminiService';
 import type { Store, Employee, AISettings, ModuleDefinition, CostCenter, ActivityLog, SupportTicket, TicketMessage, TicketStatus, JournalEntry, JournalLine } from './types';
 
 const DEFAULT_MODULES: ModuleDefinition[] = [
-    { id: 'dashboard', label: 'لوحة التحكم', description: 'نظرة عامة على أداء المتجر', price: 0, category: 'basic', isCore: true },
-    { id: 'pos', label: 'نقطة البيع (POS)', description: 'إدارة المبيعات اليومية', price: 0, category: 'basic', isCore: true },
-    { id: 'inventory', label: 'المخزون', description: 'تتبع المنتجات والكميات', price: 0, category: 'basic', isCore: true },
-    { id: 'expenses', label: 'المصروفات', description: 'تسجيل المصاريف التشغيلية', price: 0, category: 'basic', isCore: true },
-    { id: 'invoicing', label: 'الفواتير وعروض الأسعار', description: 'إصدار الفواتير وعروض الأسعار', price: 0, category: 'basic', isCore: true },
-    { id: 'services', label: 'الصيانة', description: 'إدارة طلبات الصيانة', price: 100, category: 'advanced', isCore: false },
-    { id: 'customer-management', label: 'إدارة العملاء (CRM)', description: 'قاعدة بيانات العملاء والديون', price: 150, category: 'advanced', isCore: false },
-    { id: 'suppliers-management', label: 'الموردين', description: 'إدارة الموردين والمشتريات', price: 100, category: 'advanced', isCore: false },
-    { id: 'hr-management', label: 'الموارد البشرية', description: 'شؤون الموظفين والرواتب', price: 200, category: 'premium', isCore: false },
-    { id: 'financial-reports', label: 'التقارير المالية', description: 'تحليل مالي متقدم', price: 250, category: 'premium', isCore: false },
-    { id: 'general-reports', label: 'التقارير العامة', description: 'تقارير المبيعات والمخزون', price: 0, category: 'basic', isCore: true },
-    { id: 'ai-assistant', label: 'المساعد الذكي', description: 'رؤى ونصائح بالذكاء الاصطناعي', price: 300, category: 'premium', isCore: false },
-    { id: 'installments', label: 'التقسيط', description: 'إدارة مبيعات التقسيط', price: 150, category: 'advanced', isCore: false },
-    { id: 'returns-refunds', label: 'المرتجعات', description: 'إدارة المردودات', price: 50, category: 'basic', isCore: false },
-    { id: 'activity-log', label: 'سجل الحركات', description: 'مراقبة نشاط المستخدمين', price: 100, category: 'advanced', isCore: false },
-    { id: 'notifications-center', label: 'مركز الإشعارات', description: 'تنبيهات النظام والمخزون', price: 0, category: 'basic', isCore: true },
-    { id: 'support-ticketing', label: 'الدعم الفني والبلاغات', description: 'نظام تذاكر الدعم الداخلي', price: 150, category: 'advanced', isCore: false },
-    { id: 'treasury-banking', label: 'الخزينة والبنوك', description: 'إدارة السيولة والحسابات البنكية', price: 200, category: 'premium', isCore: false },
-    { id: 'general-ledger', label: 'دفتر الأستاذ (GL)', description: 'المحاسبة العامة والقيود', price: 300, category: 'premium', isCore: false },
-    { id: 'user-guide', label: 'دليل المستخدم', description: 'شرح استخدام النظام', price: 0, category: 'basic', isCore: true },
+    { id: 'dashboard', label: 'لوحة التحكم', description: 'نظرة عامة على أداء المتجر', price: 0, category: 'basic', isCore: true, isVisible: true },
+    { id: 'pos', label: 'نقطة البيع (POS)', description: 'إدارة المبيعات اليومية', price: 0, category: 'basic', isCore: true, isVisible: true },
+    { id: 'inventory', label: 'المخزون', description: 'تتبع المنتجات والكميات', price: 0, category: 'basic', isCore: true, isVisible: true },
+    { id: 'expenses', label: 'المصروفات', description: 'تسجيل المصاريف التشغيلية', price: 0, category: 'basic', isCore: true, isVisible: true },
+    { id: 'invoicing', label: 'الفواتير وعروض الأسعار', description: 'إصدار الفواتير وعروض الأسعار', price: 0, category: 'basic', isCore: true, isVisible: true },
+    { id: 'services', label: 'الصيانة', description: 'إدارة طلبات الصيانة', price: 100, category: 'advanced', isCore: false, isVisible: true },
+    { id: 'customer-management', label: 'إدارة العملاء (CRM)', description: 'قاعدة بيانات العملاء والديون', price: 150, category: 'advanced', isCore: false, isVisible: true },
+    { id: 'suppliers-management', label: 'الموردين', description: 'إدارة الموردين والمشتريات', price: 100, category: 'advanced', isCore: false, isVisible: true },
+    { id: 'hr-management', label: 'الموارد البشرية', description: 'شؤون الموظفين والرواتب', price: 200, category: 'premium', isCore: false, isVisible: true },
+    { id: 'financial-reports', label: 'التقارير المالية', description: 'تحليل مالي متقدم', price: 250, category: 'premium', isCore: false, isVisible: true },
+    { id: 'general-reports', label: 'التقارير العامة', description: 'تقارير المبيعات والمخزون', price: 0, category: 'basic', isCore: true, isVisible: true },
+    { id: 'ai-assistant', label: 'المساعد الذكي', description: 'رؤى ونصائح بالذكاء الاصطناعي', price: 300, category: 'premium', isCore: false, isVisible: true },
+    { id: 'installments', label: 'التقسيط', description: 'إدارة مبيعات التقسيط', price: 150, category: 'advanced', isCore: false, isVisible: true },
+    { id: 'returns-refunds', label: 'المرتجعات', description: 'إدارة المردودات', price: 50, category: 'basic', isCore: false, isVisible: true },
+    { id: 'activity-log', label: 'سجل الحركات', description: 'مراقبة نشاط المستخدمين', price: 100, category: 'advanced', isCore: false, isVisible: true },
+    { id: 'notifications-center', label: 'مركز الإشعارات', description: 'تنبيهات النظام والمخزون', price: 0, category: 'basic', isCore: true, isVisible: true },
+    { id: 'support-ticketing', label: 'الدعم الفني والبلاغات', description: 'نظام تذاكر الدعم الداخلي', price: 150, category: 'advanced', isCore: false, isVisible: true },
+    { id: 'treasury-banking', label: 'الخزينة والبنوك', description: 'إدارة السيولة والحسابات البنكية', price: 200, category: 'premium', isCore: false, isVisible: true },
+    { id: 'general-ledger', label: 'دفتر الأستاذ (GL)', description: 'المحاسبة العامة والقيود', price: 300, category: 'premium', isCore: false, isVisible: true },
+    { id: 'customer-service-ai', label: 'ذكاء خدمة العملاء', description: 'بوت واتساب وتحليل محادثات', price: 200, category: 'advanced', isCore: false, isVisible: true },
+    { id: 'user-guide', label: 'دليل المستخدم', description: 'شرح استخدام النظام', price: 0, category: 'basic', isCore: true, isVisible: true },
 ];
 
 const DEFAULT_AI_SETTINGS: AISettings = {
@@ -108,6 +116,10 @@ const App: React.FC = () => {
                      }
                      return role;
                  });
+                 
+                 // 3. Init CS Data if missing
+                 if (!updatedStore.csConversations) updatedStore.csConversations = [];
+                 if (!updatedStore.csBotSettings) updatedStore.csBotSettings = { enableWhatsApp: false, enableMessenger: false, welcomeMessage: "", autoReplyEnabled: false };
 
                  return updatedStore;
              });
@@ -186,7 +198,43 @@ const App: React.FC = () => {
                 ],
                 journalEntries: [],
                 costCenters: [],
-                budgets: []
+                budgets: [],
+                // Default CS Data for Demo
+                csConversations: [
+                    {
+                        id: 'conv1',
+                        customerName: 'محمد علي',
+                        customerPhone: '0501234567',
+                        platform: 'whatsapp',
+                        status: 'active',
+                        lastActivity: new Date().toISOString(),
+                        messages: [
+                            { id: 'm1', sender: 'user', content: 'السلام عليكم، هل لديكم ايفون 15؟', timestamp: new Date(Date.now() - 3600000).toISOString() },
+                            { id: 'm2', sender: 'agent', content: 'وعليكم السلام، نعم متوفر يا غالي.', timestamp: new Date(Date.now() - 3500000).toISOString() },
+                            { id: 'm3', sender: 'user', content: 'كم سعره؟ وهل عليه ضمان؟', timestamp: new Date(Date.now() - 3400000).toISOString() }
+                        ]
+                    },
+                    {
+                        id: 'conv2',
+                        customerName: 'سارة أحمد',
+                        customerPhone: '0509876543',
+                        platform: 'messenger',
+                        status: 'closed',
+                        lastActivity: new Date(Date.now() - 86400000).toISOString(),
+                        messages: [
+                            { id: 'm4', sender: 'user', content: 'الجهاز اللي شريته فيه مشكلة بالصوت.', timestamp: new Date(Date.now() - 90000000).toISOString() },
+                            { id: 'm5', sender: 'agent', content: 'نعتذر عن ذلك، يرجى إحضاره للفرع للفحص.', timestamp: new Date(Date.now() - 89000000).toISOString() }
+                        ],
+                        sentiment: 'negative',
+                        aiSummary: 'شكوى بخصوص عطل في الصوت بجهاز تم شراؤه.'
+                    }
+                ],
+                csBotSettings: {
+                    enableWhatsApp: true,
+                    enableMessenger: false,
+                    welcomeMessage: "أهلاً بك في متجر نبراس! 🌟 كيف يمكننا خدمتك اليوم؟",
+                    autoReplyEnabled: true
+                }
             };
             setStores([defaultStore]);
         }
@@ -196,7 +244,7 @@ const App: React.FC = () => {
         if (loadedMarketplace) {
             const mergedModules = DEFAULT_MODULES.map(defMod => {
                 const existing = loadedMarketplace.find(m => m.id === defMod.id);
-                return existing ? { ...existing, isCore: defMod.isCore } : defMod;
+                return existing ? { ...existing, isCore: defMod.isCore, isVisible: existing.isVisible ?? defMod.isVisible } : defMod;
             });
             setMarketplaceModules(mergedModules);
         }
@@ -263,6 +311,13 @@ const App: React.FC = () => {
       setCurrentStore(updatedStore); 
 
       // Update in stores array
+      setStores(prevStores => prevStores.map(s => s.id === updatedStore.id ? updatedStore : s));
+  };
+  
+  const updateStorePartial = (updatedData: Partial<Store>) => {
+      if (!currentStore) return;
+      const updatedStore = { ...currentStore, ...updatedData };
+      setCurrentStore(updatedStore);
       setStores(prevStores => prevStores.map(s => s.id === updatedStore.id ? updatedStore : s));
   };
   
@@ -770,6 +825,13 @@ const App: React.FC = () => {
                 addBudget={(budget) => updateStoreData(s => ({ ...s, budgets: [...s.budgets, { ...budget, id: `BDG-${Date.now()}` }] }))}
                 aiSettings={aiSettings}
              />
+        )}
+        {activeView === 'customer-service-ai' && (
+            <CustomerServiceAI
+                store={currentStore}
+                updateStore={updateStorePartial}
+                aiSettings={aiSettings}
+            />
         )}
         {activeView === 'marketplace' && (
             <ModuleMarketplace 
