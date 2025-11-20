@@ -5,6 +5,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Login from './components/Login';
 import Sidebar from './components/Sidebar';
@@ -121,6 +123,9 @@ const App: React.FC = () => {
                  if (!updatedStore.csConversations) updatedStore.csConversations = [];
                  if (!updatedStore.csBotSettings) updatedStore.csBotSettings = { enableWhatsApp: false, enableMessenger: false, welcomeMessage: "", autoReplyEnabled: false };
 
+                 // 4. Init Beta Features
+                 if (!updatedStore.betaFeatures) updatedStore.betaFeatures = [];
+
                  return updatedStore;
              });
 
@@ -140,6 +145,7 @@ const App: React.FC = () => {
                 subscriptionMonthlyPrice: 0,
                 storeType: 'متجر شامل',
                 enabledModules: DEFAULT_MODULES.map(m => m.id), // Enable ALL modules
+                betaFeatures: [],
                 products: [
                     { id: 'p1', name: 'iPhone 15 Pro', category: 'موبايل', costPrice: 3500, sellPrice: 4200, initialQuantity: 20, supplierId: 'sup1' },
                     { id: 'p2', name: 'Samsung S24 Ultra', category: 'موبايل', costPrice: 3200, sellPrice: 3900, initialQuantity: 15, supplierId: 'sup1' },

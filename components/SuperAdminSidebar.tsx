@@ -2,8 +2,10 @@
 
 
 
+
+
 import React from 'react';
-import { NebrasLogo, CubeIcon, BanknotesIcon, LogoutIcon, ChartPieIcon, CogIcon, StoreIcon, ServerStackIcon } from './icons/Icons';
+import { NebrasLogo, CubeIcon, BanknotesIcon, LogoutIcon, ChartPieIcon, CogIcon, StoreIcon, ServerStackIcon, ShieldCheckIcon } from './icons/Icons';
 
 interface SuperAdminSidebarProps {
   activeView: string;
@@ -15,6 +17,7 @@ const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ activeView, setAc
   const navItems = [
     { id: 'management', label: 'إدارة المتاجر', icon: <CubeIcon /> },
     { id: 'monitor', label: 'مراقبة النظام', icon: <ServerStackIcon /> },
+    { id: 'permissions', label: 'إدارة الصلاحيات', icon: <ShieldCheckIcon /> },
     { id: 'marketplace-settings', label: 'إدارة سوق المديولات', icon: <StoreIcon /> },
     { id: 'profits', label: 'الأرباح', icon: <BanknotesIcon /> },
     { id: 'analysis', label: 'تحليل البيانات', icon: <ChartPieIcon /> },

@@ -2,6 +2,8 @@
 
 
 
+
+
 export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'installment';
 export type MovementType = 'sale' | 'purchase' | 'sale_return' | 'purchase_return' | 'initial' | 'adjustment';
 export type ReturnReason = 'defective' | 'wrong_item' | 'customer_dissatisfaction' | 'other';
@@ -553,6 +555,7 @@ export interface Store {
   subscriptionMonthlyPrice: number;
   storeType: string;
   enabledModules: string[];
+  betaFeatures?: string[]; // List of enabled beta feature IDs
   products: Product[];
   suppliers: Supplier[];
   purchaseOrders: PurchaseOrder[];

@@ -11,6 +11,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings, Account } from '../types';
 import SuperAdminSidebar from './SuperAdminSidebar';
@@ -20,6 +22,7 @@ import SuperAdminAISettings from './SuperAdminAISettings';
 import SuperAdminMarketplace from './SuperAdminMarketplace';
 import SuperAdminChat from './SuperAdminChat';
 import SuperAdminMonitor from './SuperAdminMonitor';
+import SuperAdminPermissions from './SuperAdminPermissions';
 import { DocumentDownloadIcon, BellIcon, ExclamationTriangleIcon, PaperAirplaneIcon, SparklesIcon } from './icons/Icons';
 import { generateNotificationMessage } from '../services/geminiService';
 
@@ -680,6 +683,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                 return <SuperAdminAISettings settings={aiSettings} onSave={onUpdateAISettings} />;
             case 'marketplace-settings':
                 return <SuperAdminMarketplace modules={marketplaceModules} updateModule={onUpdateMarketplaceModule} aiSettings={aiSettings} />;
+            case 'permissions':
+                return <SuperAdminPermissions stores={stores} setStores={setStores} marketplaceModules={marketplaceModules} />;
             default:
                 return renderManagementView();
         }
