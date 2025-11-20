@@ -1,17 +1,10 @@
 
-
-
-
-
-
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import type { Store, AISettings, Lead, Customer } from '../types';
 
 const API_KEY = process.env.API_KEY;
 
 if (!API_KEY) {
-  // In a real app, you'd handle this more gracefully.
-  // For this environment, we assume the key is present.
   console.warn("API_KEY environment variable not set.");
 }
 
@@ -21,7 +14,6 @@ export const getAiInsight = async (query: string, store: Store, aiSettings: AISe
   try {
     const { products, sales, services, expenses } = store;
     const simplifiedProducts = products.map(p => {
-        // Calculate available quantity dynamically to ensure freshness
         const sold = sales.filter(s => s.productId === p.id).reduce((sum, s) => sum + s.quantity, 0);
         return {
             id: p.id,
@@ -75,7 +67,6 @@ export const getAiSuggestions = async (store: Store, allModules: {id: string, la
     try {
         const disabledModules = allModules.filter(m => !store.enabledModules.includes(m.id) && m.id !== 'ai-messages');
         
-        // Recalculate stock to ensure freshness
         const lowStockProducts = store.products
             .map(p => {
                 const sold = store.sales.filter(s => s.productId === p.id).reduce((sum, s) => sum + s.quantity, 0);
@@ -99,11 +90,6 @@ export const getAiSuggestions = async (store: Store, allModules: {id: string, la
             - ملخص المبيعات الأخير: تم تسجيل ${store.sales.length} عملية بيع.
             - ملخص الخدمات الأخير: تم تقديم ${store.services.length} خدمة صيانة.
 
-            أمثلة على الاقتراحات المطلوبة:
-            - "هل فكرت في تفعيل وحدة التقارير المالية؟ ستمنحك نظرة شاملة على أرباحك ومصاريفك بضغطة زر!"
-            - "ملاحظة سريعة: مخزون '${lowStockProducts[0]?.name || 'منتج معين'}' منخفض. قد يكون الوقت مناسباً لإعادة طلب كمية جديدة!"
-            - "لزيادة مبيعاتك، جرب عمل عرض خاص على الإكسسوارات عند شراء أي هاتف جديد."
-
             يرجى تقديم ردك بصيغة JSON فقط، على شكل كائن يحتوي على مفتاح واحد "suggestions"، وقيمته هي مصفوفة من السلاسل النصية (string array) تحتوي على الاقتراحات.
             `;
 
@@ -118,13 +104,11 @@ export const getAiSuggestions = async (store: Store, allModules: {id: string, la
             }
         });
 
-        // The response text is a JSON string, so we need to parse it.
         const jsonResponse = JSON.parse(response.text);
         return jsonResponse.suggestions || [];
 
     } catch (error) {
         console.error("Gemini API suggestions error:", error);
-        // Return an empty array or a default error message in case of failure
         return [];
     }
 };
@@ -189,7 +173,7 @@ export const generateModuleDescription = async (moduleLabel: string, aiSettings:
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
-                temperature: 0.7, // Slightly higher creativity for marketing
+                temperature: 0.7,
             }
         });
         
@@ -232,6 +216,103 @@ export const generateNotificationMessage = async (topic: string, tone: string, a
         return "عذرًا، حدث خطأ أثناء توليد الرسالة.";
     }
 }
+
+// --- Super Admin AI Functions ---
+
+// Tool Definitions
+const superAdminTools: FunctionDeclaration[] = [
+    {
+        name: "create_store",
+        description: "تسجيل متجر جديد في النظام. استخدم هذا عندما يطلب المستخدم إنشاء متجر.",
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                name: { type: Type.STRING, description: "اسم المتجر" },
+                ownerName: { type: Type.STRING, description: "اسم المالك" },
+                ownerPhone: { type: Type.STRING, description: "رقم هاتف المالك" },
+                storeType: { type: Type.STRING, description: "نوع نشاط المتجر (مثال: موبايلات، ملابس)" },
+                subscriptionPrice: { type: Type.NUMBER, description: "سعر الاشتراك الشهري" },
+                adminUsername: { type: Type.STRING, description: "اسم المستخدم لمدير المتجر" }
+            },
+            required: ["name", "ownerName", "ownerPhone"]
+        }
+    },
+    {
+        name: "navigate_to",
+        description: "تغيير الصفحة المعروضة في لوحة التحكم.",
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                view: { 
+                    type: Type.STRING, 
+                    description: "اسم الصفحة (management, profits, analysis, ai-settings, marketplace-settings)",
+                    enum: ["management", "profits", "analysis", "ai-settings", "marketplace-settings"]
+                }
+            },
+            required: ["view"]
+        }
+    },
+    {
+        name: "send_broadcast",
+        description: "إرسال رسالة عامة لجميع المتاجر.",
+        parameters: {
+            type: Type.OBJECT,
+            properties: {
+                message: { type: Type.STRING, description: "نص الرسالة المراد إرسالها" }
+            },
+            required: ["message"]
+        }
+    }
+];
+
+export const processSuperAdminIntent = async (
+    message: string, 
+    stores: Store[], 
+    aiSettings: AISettings
+): Promise<{ text?: string, toolCall?: any }> => {
+    try {
+        const storesSummary = stores.map(s => `${s.name} (${s.storeType})`).join(', ');
+
+        const prompt = `
+            أنت المساعد الشخصي الذكي للسوبر أدمن (مدير النظام) لنظام "نبراس".
+            لديك صلاحيات كاملة لإدارة النظام عبر استدعاء الوظائف (Tools).
+            
+            معلومات السياق الحالية:
+            - عدد المتاجر المسجلة: ${stores.length}
+            - قائمة المتاجر: ${storesSummary}
+            - التاريخ: ${new Date().toLocaleDateString('ar-EG')}
+
+            تعليمات:
+            - إذا طلب المستخدم إجراءً (مثل إنشاء متجر، الانتقال لصفحة، إرسال رسالة)، استخدم الأداة المناسبة (Function Call).
+            - إذا كان السؤال استفساراً عاماً، أجب عليه بناءً على السياق.
+            - تحدث بلهجة احترافية وودودة باللغة العربية.
+            
+            طلب المستخدم: "${message}"
+        `;
+
+        const response = await ai.models.generateContent({
+            model: aiSettings.model,
+            contents: prompt,
+            config: {
+                temperature: 0.1, // Lower temperature for precise tool calling
+                tools: [{ functionDeclarations: superAdminTools }]
+            }
+        });
+        
+        // Check for tool calls
+        const functionCalls = response.functionCalls;
+        
+        if (functionCalls && functionCalls.length > 0) {
+            return { toolCall: functionCalls[0] };
+        }
+
+        return { text: response.text };
+
+    } catch (error) {
+        console.error("Gemini Super Admin Chat Error:", error);
+        return { text: "عذرًا، حدث خطأ أثناء معالجة طلبك." };
+    }
+};
 
 // --- CRM AI Functions ---
 
@@ -332,4 +413,36 @@ export const suggestBestContactTime = async (lead: Lead, aiSettings: AISettings)
      } catch (error) {
          return "غير محدد";
      }
+};
+
+export const analyzeFinancialStatements = async (trialBalance: any[], aiSettings: AISettings): Promise<string> => {
+    try {
+        const prompt = `
+            أنت محاسب قانوني خبير ومحلل مالي. قم بتحليل "ميزان المراجعة" (Trial Balance) التالي لمتجر تجزئة.
+            
+            البيانات:
+            ${JSON.stringify(trialBalance.map(ac => ({ name: ac.accountName, type: ac.accountType, balance: ac.balance })), null, 2)}
+            
+            المطلوب:
+            1. تحليل السيولة: هل يوجد نقدية كافية؟
+            2. تحليل الربحية التقريبي (الإيرادات مقابل المصروفات).
+            3. اكتشاف الشذوذ: هل هناك حسابات تبدو غير منطقية (مثلاً رصيد نقدية بالسالب، أو مصاريف ضخمة جداً مقارنة بالإيراد)؟
+            4. نصائح لتحسين الوضع المالي.
+            
+            اكتب التقرير بصيغة Markdown باللغة العربية، كن مهنياً ودقيقاً.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: aiSettings.model,
+            contents: prompt,
+            config: {
+                temperature: 0.4,
+            }
+        });
+        
+        return response.text;
+    } catch (error) {
+        console.error("Gemini GL Analysis Error:", error);
+        return "عذرًا، حدث خطأ أثناء تحليل القوائم المالية.";
+    }
 };

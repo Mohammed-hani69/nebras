@@ -3,13 +3,18 @@
 
 
 
+
+
+
+
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings } from '../types';
+import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings, Account } from '../types';
 import SuperAdminSidebar from './SuperAdminSidebar';
 import SuperAdminProfit from './SuperAdminProfit';
 import SuperAdminAnalysis from './SuperAdminAnalysis';
 import SuperAdminAISettings from './SuperAdminAISettings';
 import SuperAdminMarketplace from './SuperAdminMarketplace';
+import SuperAdminChat from './SuperAdminChat';
 import { DocumentDownloadIcon, BellIcon, ExclamationTriangleIcon, PaperAirplaneIcon, SparklesIcon } from './icons/Icons';
 import { generateNotificationMessage } from '../services/geminiService';
 
@@ -39,6 +44,21 @@ const INITIAL_FORM_STATE = {
     adminPassword: '',
     aiInstructions: '',
 };
+
+// Default Chart of Accounts
+const DEFAULT_COA: Account[] = [
+    { id: '101', code: '1010', name: 'النقدية بالصندوق', type: 'Asset', isSystem: true },
+    { id: '102', code: '1020', name: 'البنك', type: 'Asset', isSystem: true },
+    { id: '103', code: '1030', name: 'المخزون', type: 'Asset', isSystem: true },
+    { id: '104', code: '1040', name: 'العملاء (الذمم المدينة)', type: 'Asset', isSystem: true },
+    { id: '201', code: '2010', name: 'الموردين (الذمم الدائنة)', type: 'Liability', isSystem: true },
+    { id: '301', code: '3010', name: 'رأس المال', type: 'Equity', isSystem: true },
+    { id: '401', code: '4010', name: 'إيرادات المبيعات', type: 'Revenue', isSystem: true },
+    { id: '402', code: '4020', name: 'إيرادات الخدمات', type: 'Revenue', isSystem: true },
+    { id: '501', code: '5010', name: 'تكلفة البضاعة المباعة', type: 'Expense', isSystem: true },
+    { id: '502', code: '5020', name: 'مصروفات تشغيلية', type: 'Expense', isSystem: true },
+    { id: '503', code: '5030', name: 'رواتب وأجور', type: 'Expense', isSystem: true },
+];
 
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setStores, onLogout, aiSettings, onUpdateAISettings, marketplaceModules, onUpdateMarketplaceModule }) => {
     const [activeView, setActiveView] = useState('management');
@@ -157,17 +177,17 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
         }
     };
 
-    const handleSendBroadcast = () => {
-        if (!broadcastMessage) return alert('لا توجد رسالة لإرسالها.');
+    const handleSendBroadcast = (message: string = broadcastMessage, targetStoreId: string = selectedStoreId) => {
+        if (!message) return alert('لا توجد رسالة لإرسالها.');
         
         setStores(prev => prev.map(store => {
-            if (selectedStoreId !== 'all' && store.id !== selectedStoreId) return store;
+            if (targetStoreId !== 'all' && store.id !== targetStoreId) return store;
             
             const newNotification = {
                 id: `SYS-MSG-${Date.now()}-${Math.random()}`,
                 type: 'system' as const,
                 title: 'تنبيه من الإدارة',
-                message: broadcastMessage,
+                message: message,
                 timestamp: new Date().toISOString(),
                 read: false,
                 priority: 'high' as const
@@ -179,7 +199,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
             };
         }));
         
-        alert('تم إرسال الإشعار بنجاح.');
+        if (!broadcastMessage) alert('تم إرسال الإشعار بنجاح.'); // Only alert if called via button, not AI
         setBroadcastTopic('');
         setBroadcastMessage('');
     };
@@ -247,68 +267,104 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                 return store;
             }));
         } else {
-            const newStoreAdmin: Employee = { 
-                id: 'u001', 
-                username: formData.adminUsername, 
-                password: formData.adminPassword, 
-                roleId: 'admin',
-                fullName: formData.adminFullName,
-                phone: formData.adminPhone,
-                hireDate: new Date().toISOString(),
-                baseSalary: 0,
-            };
-
-            const defaultRoles: CustomRole[] = [
-                { id: 'admin', name: 'مدير النظام', permissions: marketplaceModules.map(m => m.id) },
-                { id: 'cashier', name: 'كاشير', permissions: ['dashboard', 'pos', 'customer-management', 'expenses'] },
-                { id: 'inventory_manager', name: 'مسؤول مخزون', permissions: ['dashboard', 'inventory', 'suppliers-management'] },
-            ];
-
-            const newStore: Store = {
-                id: `store${(Date.now()).toString().slice(-4)}`,
-                name: formData.name,
-                ownerName: formData.ownerName,
-                ownerPhone: formData.ownerPhone,
-                ownerEmail: formData.ownerEmail,
-                subscriptionStartDate: subscriptionStartDateISO,
-                subscriptionEndDate: subscriptionEndDateISO,
-                subscriptionMonthlyPrice: formData.subscriptionMonthlyPrice,
-                storeType: formData.storeType,
-                enabledModules: formData.enabledModules.length > 0 ? formData.enabledModules : marketplaceModules.filter(m => m.isCore).map(m => m.id),
-                products: [], sales: [], services: [], expenses: [], customers: [],
-                suppliers: [], purchaseOrders: [],
-                employees: [newStoreAdmin],
-                roles: defaultRoles,
-                paymentHistory: [],
-                aiMessages: [],
-                aiInstructions: formData.aiInstructions,
-                billingSettings: { storeName: formData.name, taxNumber: '', taxRate: 15, address: '', phone: '' },
-                invoices: [],
-                inventoryMovements: [],
-                saleReturns: [],
-                purchaseReturns: [],
-                activityLogs: [],
-                installmentPlans: [],
-                quotations: [],
-                attendance: [],
-                payrolls: [],
-                leaves: [],
-                advances: [],
-                hrSettings: {
-                    workingDays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
-                    absenceDeductionMethod: 'daily_rate',
-                    officialCheckInTime: '09:00',
-                },
-                notifications: [], // Initialize notifications
-                supportTickets: [], // Initialize support tickets
-                leads: [], // Initialize leads
-                treasuries: [],
-                bankAccounts: [],
-                financialTransactions: [],
-            };
-            setStores(prev => [...prev, newStore]);
+             createStoreFromData(formData);
         }
         resetForm();
+    };
+
+    // Helper to create store from data (used by Form and AI)
+    const createStoreFromData = (data: typeof formData) => {
+        const newStoreAdmin: Employee = { 
+            id: 'u001', 
+            username: data.adminUsername || `admin_${Date.now()}`, 
+            password: data.adminPassword || '123456', 
+            roleId: 'admin',
+            fullName: data.adminFullName || 'Admin',
+            phone: data.adminPhone || data.ownerPhone,
+            hireDate: new Date().toISOString(),
+            baseSalary: 0,
+        };
+
+        const defaultRoles: CustomRole[] = [
+            { id: 'admin', name: 'مدير النظام', permissions: marketplaceModules.map(m => m.id) },
+            { id: 'cashier', name: 'كاشير', permissions: ['dashboard', 'pos', 'customer-management', 'expenses'] },
+            { id: 'inventory_manager', name: 'مسؤول مخزون', permissions: ['dashboard', 'inventory', 'suppliers-management'] },
+        ];
+        
+        // Default dates if missing
+        const start = data.subscriptionStartDate ? new Date(data.subscriptionStartDate).toISOString() : new Date().toISOString();
+        const end = data.subscriptionEndDate ? new Date(data.subscriptionEndDate).toISOString() : new Date(Date.now() + 30*24*60*60*1000).toISOString();
+
+        const newStore: Store = {
+            id: `store${(Date.now()).toString().slice(-4)}`,
+            name: data.name,
+            ownerName: data.ownerName,
+            ownerPhone: data.ownerPhone,
+            ownerEmail: data.ownerEmail || '',
+            subscriptionStartDate: start,
+            subscriptionEndDate: end,
+            subscriptionMonthlyPrice: data.subscriptionMonthlyPrice || 0,
+            storeType: data.storeType,
+            enabledModules: data.enabledModules && data.enabledModules.length > 0 ? data.enabledModules : marketplaceModules.filter(m => m.isCore).map(m => m.id),
+            products: [], sales: [], services: [], expenses: [], customers: [],
+            suppliers: [], purchaseOrders: [],
+            employees: [newStoreAdmin],
+            roles: defaultRoles,
+            paymentHistory: [],
+            aiMessages: [],
+            aiInstructions: data.aiInstructions,
+            billingSettings: { storeName: data.name, taxNumber: '', taxRate: 15, address: '', phone: '' },
+            invoices: [],
+            inventoryMovements: [],
+            saleReturns: [],
+            purchaseReturns: [],
+            activityLogs: [],
+            installmentPlans: [],
+            quotations: [],
+            attendance: [],
+            payrolls: [],
+            leaves: [],
+            advances: [],
+            hrSettings: {
+                workingDays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
+                absenceDeductionMethod: 'daily_rate',
+                officialCheckInTime: '09:00',
+            },
+            notifications: [], 
+            supportTickets: [], 
+            leads: [], 
+            treasuries: [],
+            bankAccounts: [],
+            financialTransactions: [],
+            accounts: DEFAULT_COA, 
+            journalEntries: [],
+            costCenters: [],
+            budgets: []
+        };
+        setStores(prev => [...prev, newStore]);
+    };
+
+    // AI Actions Implementation
+    const aiActions = {
+        createStore: (data: any) => {
+            // Map AI data to internal form structure
+            const mappedData = {
+                ...INITIAL_FORM_STATE,
+                name: data.name,
+                ownerName: data.ownerName,
+                ownerPhone: data.ownerPhone,
+                storeType: data.storeType || 'عام',
+                subscriptionMonthlyPrice: data.subscriptionPrice || 0,
+                adminUsername: data.adminUsername || `admin_${Math.floor(Math.random()*1000)}`,
+            };
+            createStoreFromData(mappedData);
+        },
+        navigate: (view: string) => {
+            setActiveView(view);
+        },
+        broadcast: (message: string) => {
+            handleSendBroadcast(message, 'all');
+        }
     };
 
     const deleteStore = (storeId: string) => {
@@ -457,7 +513,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                 </div>
                 
                 <button 
-                    onClick={handleSendBroadcast}
+                    onClick={() => handleSendBroadcast(broadcastMessage, selectedStoreId)}
                     className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 font-bold flex items-center gap-2"
                 >
                     <PaperAirplaneIcon /> إرسال الآن
@@ -662,6 +718,13 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ stores, setSt
                     )}
                 </div>
                 {renderView()}
+                
+                {/* AI Assistant for Super Admin */}
+                <SuperAdminChat 
+                    stores={stores} 
+                    aiSettings={aiSettings} 
+                    actions={aiActions}
+                />
             </main>
         </div>
     );

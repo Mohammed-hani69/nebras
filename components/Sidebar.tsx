@@ -3,8 +3,10 @@
 
 
 
+
+
 import React, { useState } from 'react';
-import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, DocumentDuplicateIcon, ArrowPathRoundedSquareIcon, BellIcon, TicketIcon, BuildingLibraryIcon } from './icons/Icons';
+import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, DocumentDuplicateIcon, ArrowPathRoundedSquareIcon, BellIcon, TicketIcon, BuildingLibraryIcon, BookOpenIcon } from './icons/Icons';
 
 interface UserWithPermissions {
   id: string;
@@ -43,6 +45,7 @@ const ICONS: { [key: string]: React.ReactNode } = {
     'notifications-center': <BellIcon />, // Icon for notifications
     'support-ticketing': <TicketIcon />, // Icon for ticketing
     'treasury-banking': <BuildingLibraryIcon />, // Icon for Treasury
+    'general-ledger': <BookOpenIcon />, // Icon for General Ledger
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLogout, navItems, unreadMessagesCount, unreadNotificationsCount = 0 }) => {
@@ -63,7 +66,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLo
   const sections = [
     { id: 'main', title: 'رئيسي', items: navItems.filter(item => ['dashboard', 'inventory', 'pos', 'services'].includes(item.id)) },
     { id: 'management', title: 'الإدارة', items: navItems.filter(item => ['customer-management', 'suppliers-management', 'hr-management', 'activity-log', 'support-ticketing'].includes(item.id)) },
-    { id: 'finance', title: 'المالية والتقارير', items: navItems.filter(item => ['treasury-banking', 'invoicing', 'expenses', 'installments', 'returns-refunds', 'financial-reports', 'general-reports'].includes(item.id)) },
+    { id: 'finance', title: 'المالية والتقارير', items: navItems.filter(item => ['treasury-banking', 'general-ledger', 'invoicing', 'expenses', 'installments', 'returns-refunds', 'financial-reports', 'general-reports'].includes(item.id)) },
     { id: 'system', title: 'النظام', items: [...navItems.filter(item => ['ai-assistant', 'user-guide'].includes(item.id))] },
   ].filter(section => section.items.length > 0);
 
