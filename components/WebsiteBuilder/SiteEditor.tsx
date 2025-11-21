@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import type { Website, WebPage, WebBlock, Store, BlockDefinition } from '../../types';
-import { TrashIcon, PlusIcon, EyeIcon, CheckCircleIcon, LayoutIcon, CogIcon, ChartPieIcon, StoreIcon, ClipboardListIcon, PhotoIcon, XMarkIcon } from '../icons/Icons';
+import { TrashIcon, PlusIcon, EyeIcon, CheckCircleIcon, LayoutIcon, CogIcon, ChartPieIcon, StoreIcon, ClipboardListIcon, PhotoIcon, XMarkIcon, ChevronDownIcon, ArrowPathRoundedSquareIcon } from '../icons/Icons';
 import { SUBSCRIPTION_PLANS } from '../../data/subscriptionPlans';
 import UpgradeModal from '../UpgradeModal';
 
@@ -12,6 +12,117 @@ interface SiteEditorProps {
     onSave: (updatedWebsite: Website) => void;
     onCancel: () => void;
 }
+
+// --- Helper Components ---
+
+const ImageControl = ({ label, value, onChange }: { label: string, value: string, onChange: (val: string) => void }) => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                if (ev.target?.result) onChange(ev.target.result as string);
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    };
+
+    return (
+        <div className="mb-4">
+            <label className="block text-xs font-bold text-gray-700 mb-2 capitalize flex justify-between">
+                {label}
+                <span className="text-[10px] text-gray-400 font-normal">رابط أو رفع</span>
+            </label>
+            <div className="space-y-2">
+                {value && (
+                    <div className="relative w-full h-32 bg-gray-50 rounded-lg overflow-hidden border border-gray-200 group">
+                        <img src={value} alt="Preview" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                            <button onClick={() => onChange('')} className="bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><TrashIcon /></button>
+                        </div>
+                    </div>
+                )}
+                <div className="flex gap-2">
+                    <input 
+                        type="text" 
+                        value={value} 
+                        onChange={e => onChange(e.target.value)}
+                        className="flex-1 p-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="https://example.com/image.jpg"
+                    />
+                    <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleUpload}
+                    />
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg border border-gray-300"
+                        title="رفع صورة"
+                    >
+                        <PhotoIcon />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CollapsibleArrayItem = ({ index, item, onRemove, onUpdate, renderControl }: any) => {
+    const [isOpen, setIsOpen] = useState(false);
+    
+    // Auto-determine title based on common keys
+    let title = `عنصر ${index + 1}`;
+    if (typeof item === 'object' && item !== null) {
+        const potentialKeys = ['title', 'name', 'header', 'question', 'q', 'label', 'text'];
+        const foundKey = potentialKeys.find(k => item[k] && typeof item[k] === 'string');
+        if (foundKey) {
+            title = item[foundKey].length > 25 ? item[foundKey].substring(0, 25) + '...' : item[foundKey];
+        }
+    } else if (typeof item === 'string') {
+        title = item.length > 25 ? item.substring(0, 25) + '...' : item;
+    }
+
+    return (
+        <div className="border border-gray-200 rounded-lg bg-white mb-2 overflow-hidden transition-shadow hover:shadow-sm">
+            <div 
+                className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer select-none group"
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                <div className="flex items-center gap-2 overflow-hidden">
+                    <span className={`transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''} text-gray-400`}>
+                        <ChevronDownIcon />
+                    </span>
+                    <span className="text-xs font-bold text-gray-700 truncate">{title}</span>
+                </div>
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                    className="text-gray-400 hover:text-red-500 p-1 rounded transition opacity-0 group-hover:opacity-100"
+                    title="حذف العنصر"
+                >
+                    <XMarkIcon />
+                </button>
+            </div>
+            {isOpen && (
+                <div className="p-3 border-t border-gray-100 space-y-3 animate-fade-in bg-white">
+                    {typeof item === 'object' && item !== null ? (
+                        Object.keys(item).map(key => (
+                            <div key={key}>
+                                {renderControl(key, item[key], (val: any) => onUpdate({ ...item, [key]: val }))}
+                            </div>
+                        ))
+                    ) : (
+                        renderControl(`القيمة`, item, (val: any) => onUpdate(val))
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- Main Component ---
 
 const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, availableBlocks, onSave, onCancel }) => {
     // --- History Management ---
@@ -160,89 +271,94 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, availableBlocks
         }
     };
 
-    // --- Helper: Smart Input Renderer ---
-    const renderInputControl = (key: string, value: any, onChange: (val: any) => void, level = 0) => {
+    // --- Smart Input Renderers ---
+    const renderInputControl = (key: string, value: any, onChange: (val: any) => void) => {
         const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
         
         // 1. Boolean
         if (typeof value === 'boolean') {
             return (
-                <div className="flex items-center justify-between py-2" key={key}>
-                    <label className="text-xs font-medium text-gray-700 capitalize">{label}</label>
-                    <input 
-                        type="checkbox" 
-                        checked={value} 
-                        onChange={e => onChange(e.target.checked)}
-                        className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
-                    />
-                </div>
-            );
-        }
-
-        // 2. Image URL
-        if (key.toLowerCase().includes('image') || key.toLowerCase().includes('url') || key.toLowerCase().includes('src') || key.toLowerCase().includes('thumbnail')) {
-            return (
-                <div className="mb-3" key={key}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1 capitalize">{label}</label>
-                    <div className="flex gap-2 items-center">
-                        {value && typeof value === 'string' && (
-                             <div className="w-10 h-10 flex-shrink-0 border rounded overflow-hidden bg-gray-100">
-                                 <img src={value} alt="" className="w-full h-full object-cover" />
-                             </div>
-                        )}
-                        <div className="relative flex-1">
-                            <input 
-                                type="text" 
-                                value={value} 
-                                onChange={e => onChange(e.target.value)}
-                                className="w-full p-2 pl-8 border rounded text-xs bg-gray-50 focus:ring-1 focus:ring-indigo-500"
-                                placeholder="https://..."
-                            />
-                            <span className="absolute left-2 top-2 text-gray-400"><PhotoIcon /></span>
-                        </div>
+                <div className="flex items-center justify-between py-2 px-1 border rounded bg-gray-50 mb-2" key={key}>
+                    <label className="text-xs font-bold text-gray-700 capitalize">{label}</label>
+                    <div className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={value} 
+                            onChange={e => onChange(e.target.checked)}
+                            className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                     </div>
                 </div>
             );
         }
 
-        // 3. Long Text
-        if (key.toLowerCase().includes('text') || key.toLowerCase().includes('desc') || key.toLowerCase().includes('message') || key.toLowerCase().includes('copyright')) {
+        // 2. Image Fields
+        if (key.toLowerCase().includes('image') || key.toLowerCase().includes('url') || key.toLowerCase().includes('src') || key.toLowerCase().includes('thumbnail') || key.toLowerCase().includes('logo')) {
+            return <ImageControl key={key} label={label} value={value} onChange={onChange} />;
+        }
+
+        // 3. Color Fields
+        if (key.toLowerCase().includes('color') || key.toLowerCase().includes('bg')) {
             return (
                 <div className="mb-3" key={key}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1 capitalize">{label}</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1 capitalize">{label}</label>
+                    <div className="flex items-center gap-2 bg-gray-50 p-2 rounded border">
+                        <input 
+                            type="color" 
+                            value={value} 
+                            onChange={e => onChange(e.target.value)}
+                            className="w-8 h-8 rounded cursor-pointer border-none p-0 bg-transparent"
+                        />
+                        <input 
+                            type="text" 
+                            value={value} 
+                            onChange={e => onChange(e.target.value)}
+                            className="flex-1 bg-transparent text-xs font-mono uppercase outline-none"
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        // 4. Long Text
+        if (key.toLowerCase().includes('text') || key.toLowerCase().includes('desc') || key.toLowerCase().includes('message') || key.toLowerCase().includes('copyright') || key.toLowerCase().includes('content')) {
+            return (
+                <div className="mb-3" key={key}>
+                    <label className="block text-xs font-bold text-gray-700 mb-1 capitalize">{label}</label>
                     <textarea 
                         value={value} 
                         onChange={e => onChange(e.target.value)}
-                        className="w-full p-2 border rounded text-xs h-20 bg-gray-50 focus:ring-1 focus:ring-indigo-500"
+                        className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none h-24 resize-none"
                     />
                 </div>
             );
         }
 
-        // 4. Number
+        // 5. Number
         if (typeof value === 'number') {
              return (
                 <div className="mb-3" key={key}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1 capitalize">{label}</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1 capitalize">{label}</label>
                     <input 
                         type="number" 
                         value={value} 
                         onChange={e => onChange(parseFloat(e.target.value))}
-                        className="w-full p-2 border rounded text-xs bg-gray-50 focus:ring-1 focus:ring-indigo-500"
+                        className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                 </div>
             );
         }
 
-        // 5. Default String
+        // 6. Default String
         return (
             <div className="mb-3" key={key}>
-                <label className="block text-xs font-medium text-gray-700 mb-1 capitalize">{label}</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1 capitalize">{label}</label>
                 <input 
                     type="text" 
                     value={value} 
                     onChange={e => onChange(e.target.value)}
-                    className="w-full p-2 border rounded text-xs bg-gray-50 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
             </div>
         );
@@ -255,14 +371,14 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, availableBlocks
             if (array.length > 0) {
                 const template = array[0];
                 if (typeof template === 'object') {
-                     newItem = Object.keys(template).reduce((acc, k) => ({...acc, [k]: typeof template[k] === 'string' ? 'New Item' : ''}), {});
+                     newItem = Object.keys(template).reduce((acc, k) => ({...acc, [k]: typeof template[k] === 'string' ? 'جديد' : ''}), {});
                 } else {
-                    newItem = "New Item";
+                    newItem = "عنصر جديد";
                 }
             } else {
                  // Heuristic guess if array is empty
-                 if (key === 'images') newItem = "https://placehold.co/600x400";
-                 else newItem = { title: "New Item", text: "Description" };
+                 if (key.includes('image')) newItem = "https://placehold.co/600x400";
+                 else newItem = { title: "عنوان جديد", text: "وصف" };
             }
             onChange([...array, newItem]);
         };
@@ -278,38 +394,28 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, availableBlocks
             onChange(newArr);
         };
 
+        const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+
         return (
             <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200" key={key}>
-                <div className="flex justify-between items-center mb-2">
-                    <label className="text-xs font-bold text-gray-700 uppercase">{key}</label>
-                    <button onClick={addItem} className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-200 flex items-center gap-1">
+                <div className="flex justify-between items-center mb-3">
+                    <label className="text-xs font-black text-gray-500 uppercase tracking-wide">{label}s</label>
+                    <button onClick={addItem} className="text-xs bg-indigo-600 text-white px-2 py-1 rounded hover:bg-indigo-700 flex items-center gap-1 font-bold transition shadow-sm">
                         <PlusIcon /> إضافة
                     </button>
                 </div>
                 <div className="space-y-2">
                     {array.map((item, idx) => (
-                        <div key={idx} className="relative p-2 bg-white border rounded-md group">
-                            <button 
-                                onClick={() => removeItem(idx)}
-                                className="absolute top-2 left-2 text-red-400 hover:text-red-600 z-10"
-                            >
-                                <XMarkIcon />
-                            </button>
-                            
-                            {typeof item === 'object' ? (
-                                <div className="pt-4 pl-6">
-                                    {Object.keys(item).map(subKey => 
-                                        renderInputControl(subKey, item[subKey], (val) => updateItem(idx, { ...item, [subKey]: val }))
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="pl-6">
-                                    {renderInputControl(`Item ${idx+1}`, item, (val) => updateItem(idx, val))}
-                                </div>
-                            )}
-                        </div>
+                        <CollapsibleArrayItem 
+                            key={idx} 
+                            index={idx} 
+                            item={item} 
+                            onRemove={() => removeItem(idx)} 
+                            onUpdate={(val: any) => updateItem(idx, val)}
+                            renderControl={renderInputControl}
+                        />
                     ))}
-                    {array.length === 0 && <p className="text-xs text-center text-gray-400 py-2">لا توجد عناصر.</p>}
+                    {array.length === 0 && <div className="text-xs text-center text-gray-400 py-4 border border-dashed border-gray-300 rounded">القائمة فارغة.</div>}
                 </div>
             </div>
         );
@@ -336,7 +442,7 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, availableBlocks
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDrop={(e) => handleDrop(e, index)}
                 onClick={(e) => { e.stopPropagation(); if (!previewMode) setSelectedBlockId(block.id); }} 
-                className={`relative transition-all duration-200 ${
+                className={`relative transition-all duration-200 group ${
                     !previewMode 
                         ? `cursor-pointer hover:ring-2 hover:ring-indigo-200 border border-dashed border-transparent hover:border-indigo-300 ${isSelected ? 'ring-2 ring-indigo-500 z-10' : ''}`
                         : ''
@@ -346,8 +452,8 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, availableBlocks
                 {/* Edit Controls Overlay */}
                 {isSelected && !previewMode && (
                     <div className="absolute -top-3 right-2 flex gap-1 bg-indigo-600 text-white shadow-lg rounded-md p-1 z-20 text-xs">
-                        <span className="px-2 py-1 font-bold cursor-move">✥ نقل</span>
-                        <button onClick={(e) => { e.stopPropagation(); removeBlock(block.id); }} className="px-2 py-1 hover:bg-indigo-700 rounded bg-red-500">
+                        <span className="px-2 py-1 font-bold cursor-move flex items-center gap-1 border-r border-indigo-500/50 pr-2"><ArrowPathRoundedSquareIcon /> نقل</span>
+                        <button onClick={(e) => { e.stopPropagation(); removeBlock(block.id); }} className="px-2 py-1 hover:bg-indigo-700 rounded bg-red-500 transition">
                             <TrashIcon />
                         </button>
                     </div>
@@ -407,8 +513,8 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, availableBlocks
                         <h3 className="text-xl font-bold mb-4">{block.content.title}</h3>
                         <div className="flex gap-2 overflow-hidden">
                             {(block.content.images || []).map((src: string, i: number) => (
-                                <div key={i} className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center border text-gray-400">
-                                    <img src={src} alt={`slide ${i}`} className="w-full h-full object-cover rounded-lg" />
+                                <div key={i} className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center border text-gray-400 overflow-hidden">
+                                    <img src={src} alt={`slide ${i}`} className="w-full h-full object-cover" />
                                 </div>
                             ))}
                         </div>
@@ -416,9 +522,13 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, availableBlocks
                 ) : block.type === 'video' ? (
                     <div className="max-w-2xl mx-auto">
                         <h3 className="text-xl font-bold mb-4">{block.content.title}</h3>
-                        <div className="aspect-w-16 aspect-h-9 bg-black rounded-xl flex items-center justify-center text-white">
-                             <img src={`https://img.youtube.com/vi/${block.content.videoUrl?.split('/').pop()}/0.jpg`} className="w-full h-full object-cover opacity-50" />
-                             <span className="absolute">▶ Play</span>
+                        <div className="aspect-w-16 aspect-h-9 bg-black rounded-xl flex items-center justify-center text-white overflow-hidden relative">
+                             {block.content.videoUrl ? (
+                                <img src={`https://img.youtube.com/vi/${block.content.videoUrl.split('/').pop()}/0.jpg`} className="w-full h-full object-cover opacity-50" />
+                             ) : (
+                                 <div className="w-full h-64 bg-gray-800"></div>
+                             )}
+                             <span className="absolute text-4xl">▶</span>
                         </div>
                     </div>
                 ) : block.type === 'testimonials' ? (
@@ -475,7 +585,7 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, availableBlocks
                         </div>
                     </div>
                 ) : (
-                    // Fallback for unknown block types (e.g. Custom AI Blocks)
+                    // Fallback for unknown block types
                     <div className="border p-4 rounded text-center">
                          <h3 className="font-bold text-lg">{block.content.title || block.type}</h3>
                          <div className="text-xs text-gray-500 mt-2 overflow-hidden text-left">

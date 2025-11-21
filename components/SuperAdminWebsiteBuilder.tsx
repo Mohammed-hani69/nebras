@@ -69,6 +69,9 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
     const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
     const [editingBlock, setEditingBlock] = useState<Partial<BlockDefinition>>({});
 
+    const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+    const [editingPlan, setEditingPlan] = useState<Partial<BuilderPlan>>({});
+
     // AI Generation State
     const [aiPrompt, setAiPrompt] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
@@ -182,6 +185,36 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
         addLog('Delete Block Def', id);
     };
 
+    // --- Plan Actions ---
+    const savePlan = () => {
+        if (!editingPlan.name || editingPlan.price === undefined) return alert('يرجى إدخال الاسم والسعر');
+
+        const newPlan: BuilderPlan = {
+            id: editingPlan.id || `plan-${Date.now()}`,
+            name: editingPlan.name,
+            price: editingPlan.price,
+            limits: editingPlan.limits || { pages: 1, products: 0, storage: 100 },
+            features: editingPlan.features || { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false },
+            allowedTemplates: editingPlan.allowedTemplates || 'all',
+            allowedBlocks: editingPlan.allowedBlocks || 'all'
+        };
+
+        const updatedList = editingPlan.id
+            ? plans.map(p => p.id === newPlan.id ? newPlan : p)
+            : [...plans, newPlan];
+
+        setPlans(updatedList);
+        setIsPlanModalOpen(false);
+        setEditingPlan({});
+        addLog(editingPlan.id ? 'Update Plan' : 'Create Plan', newPlan.name);
+    };
+
+    const deletePlan = (id: string) => {
+        if (!window.confirm('هل أنت متأكد من حذف هذه الباقة؟')) return;
+        setPlans(prev => prev.filter(p => p.id !== id));
+        addLog('Delete Plan', id);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -189,6 +222,7 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                 <div className="flex gap-2">
                     {activeTab === 'templates' && <button onClick={() => { setEditingTemplate({}); setIsTemplateModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة قالب</button>}
                     {activeTab === 'units' && <button onClick={() => { setEditingBlock({}); setIsBlockModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة وحدة</button>}
+                    {activeTab === 'plans' && <button onClick={() => { setEditingPlan({ limits: { pages: 1, products: 0, storage: 100 }, features: { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false } }); setIsPlanModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة باقة</button>}
                 </div>
             </div>
 
@@ -247,8 +281,54 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                     </div>
                 )}
 
+                {activeTab === 'plans' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {plans.map(p => (
+                            <div key={p.id} className="border rounded-xl p-6 hover:shadow-lg transition relative group">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 className="font-bold text-xl text-gray-800">{p.name}</h3>
+                                        <p className="text-indigo-600 font-bold text-2xl mt-1">{p.price} <span className="text-sm font-normal text-gray-500">ج.م</span></p>
+                                    </div>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                        <button onClick={() => { setEditingPlan(p); setIsPlanModalOpen(true); }} className="text-blue-600 p-1"><PencilIcon /></button>
+                                        <button onClick={() => deletePlan(p.id)} className="text-red-600 p-1"><TrashIcon /></button>
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-3 text-sm mb-6 border-b pb-4">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">الصفحات</span>
+                                        <span className="font-bold">{p.limits.pages}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">المنتجات</span>
+                                        <span className="font-bold">{p.limits.products}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">المساحة</span>
+                                        <span className="font-bold">{p.limits.storage} MB</span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className={`flex items-center gap-2 text-sm ${p.features.customDomain ? 'text-green-700' : 'text-gray-400'}`}>
+                                        {p.features.customDomain ? <CheckCircleIcon /> : <XMarkIcon />} دومين خاص
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-sm ${p.features.ssl ? 'text-green-700' : 'text-gray-400'}`}>
+                                        {p.features.ssl ? <CheckCircleIcon /> : <XMarkIcon />} شهادة SSL
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-sm ${p.features.htmlCssAccess ? 'text-green-700' : 'text-gray-400'}`}>
+                                        {p.features.htmlCssAccess ? <CheckCircleIcon /> : <XMarkIcon />} تعديل HTML/CSS
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
                 {/* Placeholder Views for other tabs */}
-                {['plans', 'domains', 'media', 'seo', 'audit'].includes(activeTab) && (
+                {['domains', 'media', 'seo', 'audit'].includes(activeTab) && (
                     <div className="text-center py-20 text-gray-400">
                         <div className="text-6xl mb-4">🚧</div>
                         <p>هذا القسم قيد التطوير</p>
@@ -379,6 +459,69 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                         <div className="flex justify-end gap-2 mt-6">
                             <button onClick={saveBlock} className="bg-green-600 text-white px-4 py-2 rounded">حفظ</button>
                             <button onClick={() => setIsBlockModalOpen(false)} className="bg-gray-300 px-4 py-2 rounded">إلغاء</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Plan Modal */}
+            {isPlanModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-xl font-bold mb-4">{editingPlan.id ? 'تعديل باقة' : 'باقة جديدة'}</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm mb-1">اسم الباقة</label>
+                                <input type="text" value={editingPlan.name || ''} onChange={e => setEditingPlan({...editingPlan, name: e.target.value})} className="w-full p-2 border rounded" />
+                            </div>
+                            <div>
+                                <label className="block text-sm mb-1">السعر</label>
+                                <input type="number" value={editingPlan.price || 0} onChange={e => setEditingPlan({...editingPlan, price: parseFloat(e.target.value)})} className="w-full p-2 border rounded" />
+                            </div>
+                            
+                            <div className="bg-gray-50 p-3 rounded border">
+                                <h4 className="font-bold text-gray-700 mb-2 text-sm">الحدود (Limits)</h4>
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div>
+                                        <label>الصفحات</label>
+                                        <input type="number" value={editingPlan.limits?.pages || 0} onChange={e => setEditingPlan({...editingPlan, limits: {...editingPlan.limits!, pages: parseInt(e.target.value)}})} className="w-full p-1 border rounded" />
+                                    </div>
+                                    <div>
+                                        <label>المنتجات</label>
+                                        <input type="number" value={editingPlan.limits?.products || 0} onChange={e => setEditingPlan({...editingPlan, limits: {...editingPlan.limits!, products: parseInt(e.target.value)}})} className="w-full p-1 border rounded" />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label>المساحة (MB)</label>
+                                        <input type="number" value={editingPlan.limits?.storage || 0} onChange={e => setEditingPlan({...editingPlan, limits: {...editingPlan.limits!, storage: parseInt(e.target.value)}})} className="w-full p-1 border rounded" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 p-3 rounded border">
+                                <h4 className="font-bold text-gray-700 mb-2 text-sm">المميزات</h4>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input type="checkbox" checked={editingPlan.features?.customDomain || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, customDomain: e.target.checked}})} />
+                                        دومين خاص
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input type="checkbox" checked={editingPlan.features?.ssl || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, ssl: e.target.checked}})} />
+                                        شهادة SSL
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input type="checkbox" checked={editingPlan.features?.builderAccess || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, builderAccess: e.target.checked}})} />
+                                        وصول للمنشئ
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input type="checkbox" checked={editingPlan.features?.htmlCssAccess || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, htmlCssAccess: e.target.checked}})} />
+                                        تعديل كود (HTML/CSS)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button onClick={savePlan} className="bg-green-600 text-white px-4 py-2 rounded">حفظ</button>
+                            <button onClick={() => setIsPlanModalOpen(false)} className="bg-gray-300 px-4 py-2 rounded">إلغاء</button>
                         </div>
                     </div>
                 </div>
