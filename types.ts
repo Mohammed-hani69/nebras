@@ -124,6 +124,7 @@ export interface OnlineOrder {
     status: 'new' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
     date: string;
     paymentMethod: 'cod' | 'online';
+    estimatedDelivery?: string;
 }
 
 // Admin Specific Builder Types
@@ -338,6 +339,10 @@ export interface Product {
   sellPrice: number;
   initialQuantity: number;
   supplierId: string;
+  // E-commerce Fields
+  images?: string[]; // Array of image URLs
+  isVisibleOnline?: boolean; // Toggle visibility
+  description?: string; // HTML or Text description
 }
 
 export interface InventoryMovement {
