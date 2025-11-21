@@ -1,5 +1,5 @@
 
-import type { Store, AISettings, ModuleDefinition, GlobalSettings, WebTemplate, BlockDefinition } from '../types';
+import type { Store, AISettings, ModuleDefinition, GlobalSettings, WebTemplate, BlockDefinition, BuilderPlan } from '../types';
 
 const DB_NAME = 'MobileShopDB';
 const DB_VERSION = 2; // Incremented version
@@ -205,5 +205,28 @@ export const loadBuilderAssets = (): Promise<{ templates: WebTemplate[], blocks:
              // If error, return nulls or empty
              resolve(null);
         };
+    });
+};
+
+// --- Website Plans Persistence ---
+export const saveWebsitePlans = (plans: BuilderPlan[]): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        if (!db) return reject('DB not initialized');
+        const transaction = db.transaction(STORES_OBJECT_STORE, 'readwrite');
+        const objectStore = transaction.objectStore(STORES_OBJECT_STORE);
+        const request = objectStore.put({ id: 'website_plans', data: plans });
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
+export const loadWebsitePlans = (): Promise<BuilderPlan[] | null> => {
+    return new Promise((resolve, reject) => {
+        if (!db) return reject('DB not initialized');
+        const transaction = db.transaction(STORES_OBJECT_STORE, 'readonly');
+        const objectStore = transaction.objectStore(STORES_OBJECT_STORE);
+        const request = objectStore.get('website_plans');
+        request.onsuccess = () => resolve(request.result?.data || null);
+        request.onerror = () => reject(request.error);
     });
 };

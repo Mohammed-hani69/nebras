@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
-import type { Store, AISettings, WebTemplate, WebBlock, BuilderAuditLog, BuilderPlan, DomainRequest, GlobalMediaItem, SEOTemplate, BlockDefinition } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { Store, AISettings, WebTemplate, WebBlock, BuilderAuditLog, BuilderPlan, DomainRequest, GlobalMediaItem, SEOTemplate, BlockDefinition, PlanSubscriptionRequest } from '../types';
 import { 
     LayoutIcon, CubeIcon, BriefcaseIcon, GlobeAltIcon, 
     StoreIcon, PhotoIcon, ClipboardListIcon, PlusIcon, SparklesIcon, TrashIcon, PencilIcon,
-    CheckCircleIcon, CogIcon, DocumentTextIcon, CloudArrowUpIcon, XMarkIcon
+    CheckCircleIcon, CogIcon, DocumentTextIcon, CloudArrowUpIcon, XMarkIcon, BellIcon
 } from './icons/Icons';
 import { generateBuilderComponent } from '../services/geminiService';
 
@@ -16,13 +16,9 @@ interface SuperAdminWebsiteBuilderProps {
     initialBlocks: BlockDefinition[];
     onUpdateTemplates: (templates: WebTemplate[]) => void;
     onUpdateBlocks: (blocks: BlockDefinition[]) => void;
+    plans: BuilderPlan[];
+    setPlans: React.Dispatch<React.SetStateAction<BuilderPlan[]>>;
 }
-
-// --- Mock Data for other tabs ---
-const INITIAL_PLANS: BuilderPlan[] = [
-    { id: 'basic-web', name: 'موقع تعريفي أساسي', price: 0, limits: { pages: 3, products: 0, storage: 100 }, features: { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false }, allowedTemplates: ['temp-2'], allowedBlocks: ['blk-1'] },
-    { id: 'store-pro', name: 'متجر احترافي', price: 500, limits: { pages: 20, products: 1000, storage: 5000 }, features: { customDomain: true, ssl: true, builderAccess: true, htmlCssAccess: true }, allowedTemplates: 'all', allowedBlocks: 'all' }
-];
 
 const INITIAL_DOMAINS: DomainRequest[] = [
     { id: 'dom-1', storeId: 'store-123', storeName: 'متجر الأمل', domain: 'alamal.com', status: 'pending', ssl: false, dnsVerified: false, requestedAt: new Date().toISOString() }
@@ -36,7 +32,7 @@ const INITIAL_MEDIA: GlobalMediaItem[] = [
 const TABS = [
     { id: 'templates', label: 'القوالب', icon: <LayoutIcon /> },
     { id: 'units', label: 'الوحدات (Blocks)', icon: <CubeIcon /> },
-    { id: 'plans', label: 'الباقات', icon: <BriefcaseIcon /> },
+    { id: 'plans', label: 'الباقات والاشتراكات', icon: <BriefcaseIcon /> },
     { id: 'domains', label: 'الدومينات', icon: <GlobeAltIcon /> },
     { id: 'media', label: 'الوسائط', icon: <PhotoIcon /> },
     { id: 'seo', label: 'SEO', icon: <SparklesIcon /> },
@@ -45,16 +41,17 @@ const TABS = [
 
 const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({ 
     stores, setStores, aiSettings, 
-    initialTemplates, initialBlocks, onUpdateTemplates, onUpdateBlocks 
+    initialTemplates, initialBlocks, onUpdateTemplates, onUpdateBlocks,
+    plans, setPlans
 }) => {
-    const [activeTab, setActiveTab] = useState('templates');
+    const [activeTab, setActiveTab] = useState('plans');
+    const [activePlansSubTab, setActivePlansSubTab] = useState<'manage' | 'requests'>('manage');
     
     // Shared Data States
     const [templates, setTemplates] = useState<WebTemplate[]>(initialTemplates);
     const [blocks, setBlocks] = useState<BlockDefinition[]>(initialBlocks);
     
     // Local Data States
-    const [plans, setPlans] = useState<BuilderPlan[]>(INITIAL_PLANS);
     const [domains, setDomains] = useState<DomainRequest[]>(INITIAL_DOMAINS);
     const [media, setMedia] = useState<GlobalMediaItem[]>(INITIAL_MEDIA);
     const [logs, setLogs] = useState<BuilderAuditLog[]>([]);
@@ -193,7 +190,7 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
             id: editingPlan.id || `plan-${Date.now()}`,
             name: editingPlan.name,
             price: editingPlan.price,
-            limits: editingPlan.limits || { pages: 1, products: 0, storage: 100 },
+            limits: editingPlan.limits || { pages: 1, products: 0, storage: 100, visits: 1000 },
             features: editingPlan.features || { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false },
             allowedTemplates: editingPlan.allowedTemplates || 'all',
             allowedBlocks: editingPlan.allowedBlocks || 'all'
@@ -215,6 +212,40 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
         addLog('Delete Plan', id);
     };
 
+    // --- Subscription Requests Logic ---
+    const pendingRequests = useMemo(() => {
+        return stores
+            .filter(s => s.websitePlanRequest && s.websitePlanRequest.status === 'pending')
+            .map(s => s.websitePlanRequest!);
+    }, [stores]);
+
+    const handleRequestAction = (request: PlanSubscriptionRequest, action: 'approve' | 'reject') => {
+        if (action === 'approve') {
+            setStores(prev => prev.map(s => {
+                if (s.id === request.storeId) {
+                    return {
+                        ...s,
+                        plan: request.planId,
+                        websitePlanRequest: { ...request, status: 'approved' }
+                    };
+                }
+                return s;
+            }));
+            addLog('Approve Subscription', request.storeName);
+        } else {
+            setStores(prev => prev.map(s => {
+                if (s.id === request.storeId) {
+                    return {
+                        ...s,
+                        websitePlanRequest: { ...request, status: 'rejected' }
+                    };
+                }
+                return s;
+            }));
+            addLog('Reject Subscription', request.storeName);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -222,7 +253,7 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                 <div className="flex gap-2">
                     {activeTab === 'templates' && <button onClick={() => { setEditingTemplate({}); setIsTemplateModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة قالب</button>}
                     {activeTab === 'units' && <button onClick={() => { setEditingBlock({}); setIsBlockModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة وحدة</button>}
-                    {activeTab === 'plans' && <button onClick={() => { setEditingPlan({ limits: { pages: 1, products: 0, storage: 100 }, features: { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false } }); setIsPlanModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة باقة</button>}
+                    {activeTab === 'plans' && activePlansSubTab === 'manage' && <button onClick={() => { setEditingPlan({ limits: { pages: 1, products: 0, storage: 100, visits: 1000 }, features: { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false } }); setIsPlanModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة باقة</button>}
                 </div>
             </div>
 
@@ -235,6 +266,7 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                         className={`flex items-center gap-2 px-6 py-4 font-medium whitespace-nowrap transition ${activeTab === tab.id ? 'border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50' : 'text-gray-600 hover:bg-gray-50'}`}
                     >
                         {tab.icon} {tab.label}
+                        {tab.id === 'plans' && pendingRequests.length > 0 && <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{pendingRequests.length}</span>}
                     </button>
                 ))}
             </div>
@@ -282,48 +314,107 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                 )}
 
                 {activeTab === 'plans' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {plans.map(p => (
-                            <div key={p.id} className="border rounded-xl p-6 hover:shadow-lg transition relative group">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 className="font-bold text-xl text-gray-800">{p.name}</h3>
-                                        <p className="text-indigo-600 font-bold text-2xl mt-1">{p.price} <span className="text-sm font-normal text-gray-500">ج.م</span></p>
-                                    </div>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                                        <button onClick={() => { setEditingPlan(p); setIsPlanModalOpen(true); }} className="text-blue-600 p-1"><PencilIcon /></button>
-                                        <button onClick={() => deletePlan(p.id)} className="text-red-600 p-1"><TrashIcon /></button>
-                                    </div>
-                                </div>
-                                
-                                <div className="space-y-3 text-sm mb-6 border-b pb-4">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">الصفحات</span>
-                                        <span className="font-bold">{p.limits.pages}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">المنتجات</span>
-                                        <span className="font-bold">{p.limits.products}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">المساحة</span>
-                                        <span className="font-bold">{p.limits.storage} MB</span>
-                                    </div>
-                                </div>
+                    <div className="space-y-6">
+                        <div className="flex gap-4 border-b pb-2">
+                            <button 
+                                onClick={() => setActivePlansSubTab('manage')} 
+                                className={`text-sm font-bold pb-2 ${activePlansSubTab === 'manage' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500'}`}
+                            >
+                                إدارة الباقات
+                            </button>
+                            <button 
+                                onClick={() => setActivePlansSubTab('requests')} 
+                                className={`text-sm font-bold pb-2 flex items-center gap-2 ${activePlansSubTab === 'requests' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500'}`}
+                            >
+                                طلبات الاشتراك
+                                {pendingRequests.length > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 rounded-full">{pendingRequests.length}</span>}
+                            </button>
+                        </div>
 
-                                <div className="space-y-2">
-                                    <div className={`flex items-center gap-2 text-sm ${p.features.customDomain ? 'text-green-700' : 'text-gray-400'}`}>
-                                        {p.features.customDomain ? <CheckCircleIcon /> : <XMarkIcon />} دومين خاص
+                        {activePlansSubTab === 'manage' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {plans.map(p => (
+                                    <div key={p.id} className="border rounded-xl p-6 hover:shadow-lg transition relative group bg-white">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <h3 className="font-bold text-xl text-gray-800">{p.name}</h3>
+                                                <p className="text-indigo-600 font-bold text-2xl mt-1">{p.price} <span className="text-sm font-normal text-gray-500">ج.م</span></p>
+                                            </div>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                                <button onClick={() => { setEditingPlan(p); setIsPlanModalOpen(true); }} className="text-blue-600 p-1 bg-gray-100 rounded hover:bg-blue-100"><PencilIcon /></button>
+                                                <button onClick={() => deletePlan(p.id)} className="text-red-600 p-1 bg-gray-100 rounded hover:bg-red-100"><TrashIcon /></button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="space-y-3 text-sm mb-6 border-b pb-4 bg-gray-50 p-3 rounded-lg">
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">الصفحات</span>
+                                                <span className="font-bold">{p.limits.pages}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">المنتجات</span>
+                                                <span className="font-bold">{p.limits.products}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">المساحة</span>
+                                                <span className="font-bold">{p.limits.storage} MB</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">الزيارات</span>
+                                                <span className="font-bold">{p.limits.visits}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div className={`flex items-center gap-2 text-sm ${p.features.customDomain ? 'text-green-700' : 'text-gray-400'}`}>
+                                                {p.features.customDomain ? <CheckCircleIcon /> : <XMarkIcon />} دومين خاص
+                                            </div>
+                                            <div className={`flex items-center gap-2 text-sm ${p.features.ssl ? 'text-green-700' : 'text-gray-400'}`}>
+                                                {p.features.ssl ? <CheckCircleIcon /> : <XMarkIcon />} شهادة SSL
+                                            </div>
+                                            <div className={`flex items-center gap-2 text-sm ${p.features.builderAccess ? 'text-green-700' : 'text-gray-400'}`}>
+                                                {p.features.builderAccess ? <CheckCircleIcon /> : <XMarkIcon />} وصول للمنشئ
+                                            </div>
+                                            <div className={`flex items-center gap-2 text-sm ${p.features.htmlCssAccess ? 'text-green-700' : 'text-gray-400'}`}>
+                                                {p.features.htmlCssAccess ? <CheckCircleIcon /> : <XMarkIcon />} تعديل HTML/CSS
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className={`flex items-center gap-2 text-sm ${p.features.ssl ? 'text-green-700' : 'text-gray-400'}`}>
-                                        {p.features.ssl ? <CheckCircleIcon /> : <XMarkIcon />} شهادة SSL
-                                    </div>
-                                    <div className={`flex items-center gap-2 text-sm ${p.features.htmlCssAccess ? 'text-green-700' : 'text-gray-400'}`}>
-                                        {p.features.htmlCssAccess ? <CheckCircleIcon /> : <XMarkIcon />} تعديل HTML/CSS
-                                    </div>
-                                </div>
+                                ))}
                             </div>
-                        ))}
+                        )}
+
+                        {activePlansSubTab === 'requests' && (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-right text-sm bg-white border rounded-lg">
+                                    <thead className="bg-gray-50 text-gray-700">
+                                        <tr>
+                                            <th className="p-4">اسم المتجر</th>
+                                            <th className="p-4">الباقة المطلوبة</th>
+                                            <th className="p-4">تاريخ الطلب</th>
+                                            <th className="p-4">الإجراء</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {pendingRequests.length > 0 ? pendingRequests.map(req => (
+                                            <tr key={req.id} className="border-b last:border-0 hover:bg-gray-50">
+                                                <td className="p-4 font-bold">{req.storeName}</td>
+                                                <td className="p-4">
+                                                    <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">{req.planName}</span>
+                                                </td>
+                                                <td className="p-4 text-gray-500">{new Date(req.requestDate).toLocaleDateString('ar-EG')}</td>
+                                                <td className="p-4 flex gap-2">
+                                                    <button onClick={() => handleRequestAction(req, 'approve')} className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-xs font-bold">قبول</button>
+                                                    <button onClick={() => handleRequestAction(req, 'reject')} className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-xs font-bold">رفض</button>
+                                                </td>
+                                            </tr>
+                                        )) : (
+                                            <tr><td colSpan={4} className="p-8 text-center text-gray-500">لا توجد طلبات اشتراك معلقة.</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -493,6 +584,10 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                                     <div className="col-span-2">
                                         <label>المساحة (MB)</label>
                                         <input type="number" value={editingPlan.limits?.storage || 0} onChange={e => setEditingPlan({...editingPlan, limits: {...editingPlan.limits!, storage: parseInt(e.target.value)}})} className="w-full p-1 border rounded" />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label>الزيارات</label>
+                                        <input type="number" value={editingPlan.limits?.visits || 0} onChange={e => setEditingPlan({...editingPlan, limits: {...editingPlan.limits!, visits: parseInt(e.target.value)}})} className="w-full p-1 border rounded" />
                                     </div>
                                 </div>
                             </div>

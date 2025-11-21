@@ -1,10 +1,6 @@
 
-
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings, Account, GlobalSettings, WebTemplate, BlockDefinition } from '../types';
+import type { Store, Employee, PurchaseOrder, AISettings, CustomRole, ModuleDefinition, HRSettings, Account, GlobalSettings, WebTemplate, BlockDefinition, BuilderPlan } from '../types';
 import SuperAdminSidebar from './SuperAdminSidebar';
 import SuperAdminProfit from './SuperAdminProfit';
 import SuperAdminAnalysis from './SuperAdminAnalysis';
@@ -33,6 +29,9 @@ interface SuperAdminDashboardProps {
   initialBlocks: BlockDefinition[];
   onUpdateTemplates: (templates: WebTemplate[]) => void;
   onUpdateBlocks: (blocks: BlockDefinition[]) => void;
+  // Website Plans
+  websitePlans: BuilderPlan[];
+  setWebsitePlans: React.Dispatch<React.SetStateAction<BuilderPlan[]>>;
 }
 
 const INITIAL_FORM_STATE = {
@@ -80,7 +79,8 @@ const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ 
     stores, setStores, onLogout, aiSettings, onUpdateAISettings, 
     marketplaceModules, onUpdateMarketplaceModule,
-    initialTemplates, initialBlocks, onUpdateTemplates, onUpdateBlocks
+    initialTemplates, initialBlocks, onUpdateTemplates, onUpdateBlocks,
+    websitePlans, setWebsitePlans
 }) => {
     const [activeView, setActiveView] = useState('management');
     const [showForm, setShowForm] = useState(false);
@@ -729,6 +729,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                             initialBlocks={initialBlocks}
                             onUpdateTemplates={onUpdateTemplates}
                             onUpdateBlocks={onUpdateBlocks}
+                            plans={websitePlans}
+                            setPlans={setWebsitePlans}
                         />;
             default:
                 return renderManagementView();

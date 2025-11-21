@@ -161,6 +161,7 @@ export interface BuilderPlan {
         pages: number;
         products: number;
         storage: number; // MB
+        visits: number; // Monthly visits
     };
     features: {
         customDomain: boolean;
@@ -170,6 +171,16 @@ export interface BuilderPlan {
     };
     allowedTemplates: 'all' | string[]; // 'all' or array of IDs
     allowedBlocks: 'all' | string[];
+}
+
+export interface PlanSubscriptionRequest {
+    id: string;
+    storeId: string;
+    storeName: string;
+    planId: string;
+    planName: string;
+    status: 'pending' | 'approved' | 'rejected';
+    requestDate: string;
 }
 
 export interface DomainRequest {
@@ -726,7 +737,7 @@ export interface Store {
   subscriptionEndDate: string; // ISO string format
   subscriptionMonthlyPrice: number;
   storeType: string;
-  plan: 'free' | 'basic' | 'pro' | 'enterprise'; // Added plan field
+  plan: string; // Changed to string to allow ID references from BuilderPlan
   enabledModules: string[];
   betaFeatures?: string[]; // List of enabled beta feature IDs
   products: Product[];
@@ -772,4 +783,5 @@ export interface Store {
   // Website Builder Data
   website?: Website;
   onlineOrders?: OnlineOrder[];
+  websitePlanRequest?: PlanSubscriptionRequest;
 }

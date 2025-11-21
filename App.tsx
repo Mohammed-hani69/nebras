@@ -30,9 +30,9 @@ import StoreSystemSupport from './components/StoreSystemSupport';
 import WebsiteBuilder from './components/WebsiteBuilder/WebsiteBuilder';
 import PublicSiteRenderer from './components/WebsiteBuilder/PublicSiteRenderer';
 
-import { initDB, loadStores, saveStores, loadAISettings, saveAISettings, loadMarketplaceSettings, saveMarketplaceSettings, loadBuilderAssets, saveBuilderAssets } from './services/db';
+import { initDB, loadStores, saveStores, loadAISettings, saveAISettings, loadMarketplaceSettings, saveMarketplaceSettings, loadBuilderAssets, saveBuilderAssets, loadWebsitePlans, saveWebsitePlans } from './services/db';
 import { getAiSuggestions } from './services/geminiService';
-import type { Store, Employee, AISettings, ModuleDefinition, CostCenter, ActivityLog, SupportTicket, TicketMessage, TicketStatus, JournalEntry, JournalLine, OnlineOrder, WebTemplate, BlockDefinition } from './types';
+import type { Store, Employee, AISettings, ModuleDefinition, CostCenter, ActivityLog, SupportTicket, TicketMessage, TicketStatus, JournalEntry, JournalLine, OnlineOrder, WebTemplate, BlockDefinition, BuilderPlan } from './types';
 
 const DEFAULT_MODULES: ModuleDefinition[] = [
     { id: 'dashboard', label: 'لوحة التحكم', description: 'نظرة عامة على أداء المتجر', price: 0, category: 'basic', isCore: true, isVisible: true },
@@ -128,6 +128,12 @@ const DEFAULT_BLOCK_DEFINITIONS: BlockDefinition[] = [
     { id: 'testimonials-def', type: 'testimonials', label: 'آراء العملاء', icon: '💬', category: 'marketing', isPremium: true, defaultContent: { title: 'آراء العملاء', items: [{name: 'عميل', text: 'خدمة رائعة', role: 'مشتري'}] }, defaultStyle: { padding: '2rem' } },
 ];
 
+const INITIAL_PLANS: BuilderPlan[] = [
+    { id: 'free', name: 'مجاني', price: 0, limits: { pages: 3, products: 10, storage: 100, visits: 1000 }, features: { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false }, allowedTemplates: ['default-store'], allowedBlocks: ['hero-def', 'text-def', 'contact-form-def', 'footer-def'] },
+    { id: 'basic', name: 'أساسي', price: 200, limits: { pages: 10, products: 100, storage: 1024, visits: 10000 }, features: { customDomain: true, ssl: true, builderAccess: true, htmlCssAccess: false }, allowedTemplates: 'all', allowedBlocks: 'all' },
+    { id: 'pro', name: 'احترافي', price: 500, limits: { pages: 50, products: 1000, storage: 5120, visits: 50000 }, features: { customDomain: true, ssl: true, builderAccess: true, htmlCssAccess: true }, allowedTemplates: 'all', allowedBlocks: 'all' }
+];
+
 const App: React.FC = () => {
   const [stores, setStores] = useState<Store[]>([]);
   const [currentStore, setCurrentStore] = useState<Store | null>(null);
@@ -141,6 +147,7 @@ const App: React.FC = () => {
   // Builder Assets State
   const [websiteTemplates, setWebsiteTemplates] = useState<WebTemplate[]>(DEFAULT_TEMPLATES);
   const [websiteBlocks, setWebsiteBlocks] = useState<BlockDefinition[]>(DEFAULT_BLOCK_DEFINITIONS);
+  const [websitePlans, setWebsitePlans] = useState<BuilderPlan[]>(INITIAL_PLANS);
 
   // Public view state
   const [viewingPublicSite, setViewingPublicSite] = useState<{storeId: string} | null>(null);
@@ -155,6 +162,7 @@ const App: React.FC = () => {
         const loadedAiSettings = await loadAISettings();
         const loadedMarketplace = await loadMarketplaceSettings();
         const loadedBuilderAssets = await loadBuilderAssets();
+        const loadedPlans = await loadWebsitePlans();
         
         if (loadedStores && loadedStores.length > 0) {
              // --- DATA MIGRATION / FIX ---
@@ -200,7 +208,7 @@ const App: React.FC = () => {
                 subscriptionEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
                 subscriptionMonthlyPrice: 0,
                 storeType: 'متجر شامل',
-                plan: 'pro', // Give demo store Pro plan
+                plan: 'free', // Give demo store Free plan
                 enabledModules: DEFAULT_MODULES.map(m => m.id), // Enable ALL modules
                 betaFeatures: [],
                 products: [
@@ -286,6 +294,10 @@ const App: React.FC = () => {
                  setWebsiteBlocks(loadedBuilderAssets.blocks);
              }
         }
+        
+        if (loadedPlans && loadedPlans.length > 0) {
+            setWebsitePlans(loadedPlans);
+        }
 
       } catch (error) {
         console.error("DB Initialization Failed:", error);
@@ -329,6 +341,13 @@ const App: React.FC = () => {
           saveBuilderAssets(websiteTemplates, websiteBlocks);
       }
   }, [websiteTemplates, websiteBlocks, isDbInitialized]);
+  
+  // Persist Plans
+  useEffect(() => {
+      if (isDbInitialized) {
+          saveWebsitePlans(websitePlans);
+      }
+  }, [websitePlans, isDbInitialized]);
 
 
   // --- Login Logic ---
@@ -564,6 +583,8 @@ const App: React.FC = () => {
               initialBlocks={websiteBlocks}
               onUpdateTemplates={setWebsiteTemplates}
               onUpdateBlocks={setWebsiteBlocks}
+              websitePlans={websitePlans}
+              setWebsitePlans={setWebsitePlans}
           />
       );
   }
@@ -923,6 +944,7 @@ const App: React.FC = () => {
                 updateStore={updateStorePartial}
                 availableTemplates={websiteTemplates}
                 availableBlocks={websiteBlocks}
+                availablePlans={websitePlans}
             />
         )}
       </main>

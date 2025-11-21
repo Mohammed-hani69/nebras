@@ -1,9 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import type { Store, Website, WebTemplate, BlockDefinition, OnlineOrder, Sale, Invoice, InventoryMovement, JournalEntry, Product } from '../../types';
-import { GlobeAltIcon, PencilIcon, EyeIcon, PlusIcon, LayoutIcon, CheckCircleIcon, ShoppingCartIcon, CubeIcon, CogIcon, BanknotesIcon, TruckIcon, XMarkIcon, PhotoIcon, ChatBubbleLeftRightIcon } from '../icons/Icons';
+import type { Store, Website, WebTemplate, BlockDefinition, OnlineOrder, Sale, Invoice, InventoryMovement, JournalEntry, Product, BuilderPlan } from '../../types';
+import { GlobeAltIcon, PencilIcon, EyeIcon, PlusIcon, LayoutIcon, CheckCircleIcon, ShoppingCartIcon, CubeIcon, CogIcon, BanknotesIcon, TruckIcon, XMarkIcon, PhotoIcon, ChatBubbleLeftRightIcon, BriefcaseIcon } from '../icons/Icons';
 import SiteEditor from './SiteEditor';
-import { SUBSCRIPTION_PLANS } from '../../data/subscriptionPlans';
 import UpgradeModal from '../UpgradeModal';
 
 interface WebsiteBuilderProps {
@@ -11,11 +10,12 @@ interface WebsiteBuilderProps {
     updateStore: (data: Partial<Store>) => void;
     availableTemplates: WebTemplate[];
     availableBlocks: BlockDefinition[];
+    availablePlans: BuilderPlan[];
 }
 
-const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore, availableTemplates, availableBlocks }) => {
+const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore, availableTemplates, availableBlocks, availablePlans }) => {
     const [view, setView] = useState<'admin_panel' | 'editor' | 'wizard'>('admin_panel');
-    const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'products' | 'settings'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'products' | 'settings' | 'subscription'>('overview');
     const [selectedType, setSelectedType] = useState<'store' | 'company' | null>(null);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     
@@ -29,7 +29,26 @@ const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore, ava
     const [estimatedDelivery, setEstimatedDelivery] = useState('');
 
     const hasWebsite = !!store.website;
-    const currentPlan = SUBSCRIPTION_PLANS[store.plan] || SUBSCRIPTION_PLANS.free;
+    // Find current plan details
+    const currentPlan = availablePlans.find(p => p.id === store.plan) || availablePlans[0]; // Default to first (usually free) if not found
+
+    // --- Subscription Handling ---
+    const handleSubscribeRequest = (plan: BuilderPlan) => {
+        if (window.confirm(`هل أنت متأكد من رغبتك في الترقية إلى باقة "${plan.name}"؟ سيتم إرسال طلب للموافقة.`)) {
+            const request = {
+                id: `REQ-${Date.now()}`,
+                storeId: store.id,
+                storeName: store.name,
+                planId: plan.id,
+                planName: plan.name,
+                status: 'pending' as const,
+                requestDate: new Date().toISOString()
+            };
+            
+            updateStore({ websitePlanRequest: request });
+            alert('تم إرسال طلبك بنجاح. سيتم التواصل معك أو تفعيل الباقة قريباً.');
+        }
+    };
 
     // --- Logic for Processing Orders ---
     const openProcessModal = (order: OnlineOrder) => {
@@ -166,7 +185,7 @@ const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore, ava
     };
 
     const handleSelectTemplate = (template: WebTemplate) => {
-        if (template.isPremium && !currentPlan.features.premiumTemplates) {
+        if (template.isPremium && !currentPlan.features.builderAccess) { // Simplified check based on plan features
             setShowUpgradeModal(true);
             return;
         }
@@ -246,7 +265,7 @@ const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore, ava
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {availableTemplates.filter(t => t.type === selectedType).map(template => {
-                        const isLocked = template.isPremium && !currentPlan.features.premiumTemplates;
+                        const isLocked = template.isPremium && !currentPlan.features.builderAccess;
                         return (
                             <div key={template.id} className="border rounded-xl overflow-hidden hover:shadow-xl transition group relative">
                                 <div className="h-48 bg-gray-200 relative">
@@ -405,6 +424,9 @@ const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore, ava
                 </button>
                 <button onClick={() => setActiveTab('settings')} className={`px-6 py-3 font-medium transition flex items-center gap-2 ${activeTab === 'settings' ? 'border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50' : 'text-gray-600 hover:bg-gray-50'}`}>
                     <CogIcon /> الإعدادات
+                </button>
+                <button onClick={() => setActiveTab('subscription')} className={`px-6 py-3 font-medium transition flex items-center gap-2 ${activeTab === 'subscription' ? 'border-b-2 border-indigo-600 text-indigo-600 bg-indigo-50' : 'text-gray-600 hover:bg-gray-50'}`}>
+                    <BriefcaseIcon /> الاشتراك
                 </button>
             </div>
 
@@ -775,6 +797,80 @@ const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore, ava
                         <button className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 font-bold shadow">
                             حفظ الإعدادات
                         </button>
+                    </div>
+                )}
+
+                {activeTab === 'subscription' && (
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center">
+                            <h2 className="text-xl font-bold text-gray-800">اشتراك المتجر الإلكتروني</h2>
+                            <span className="text-sm font-medium text-gray-500">باقتك الحالية: <strong className="text-indigo-600">{currentPlan.name}</strong></span>
+                        </div>
+
+                        {store.websitePlanRequest && store.websitePlanRequest.status === 'pending' && (
+                            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-xl flex items-center gap-3 animate-fade-in-up">
+                                <div className="bg-yellow-200 p-2 rounded-full"><CogIcon /></div>
+                                <div>
+                                    <p className="font-bold">طلب ترقية معلق</p>
+                                    <p className="text-sm">لقد طلبت الترقية إلى باقة <strong>{store.websitePlanRequest.planName}</strong>. يرجى انتظار موافقة الإدارة.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {availablePlans.map(plan => {
+                                const isCurrent = store.plan === plan.id;
+                                const isPending = store.websitePlanRequest?.planId === plan.id && store.websitePlanRequest.status === 'pending';
+                                
+                                return (
+                                    <div key={plan.id} className={`border rounded-xl p-6 relative flex flex-col ${isCurrent ? 'border-indigo-500 ring-2 ring-indigo-100 bg-indigo-50/30' : 'bg-white hover:shadow-lg transition'}`}>
+                                        {isCurrent && (
+                                            <div className="absolute top-0 right-0 bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
+                                                الباقة الحالية
+                                            </div>
+                                        )}
+                                        
+                                        <h3 className="font-bold text-xl text-gray-800 mb-2">{plan.name}</h3>
+                                        <p className="text-3xl font-bold text-indigo-600 mb-6">{plan.price} <span className="text-sm font-normal text-gray-500">ج.م/شهر</span></p>
+                                        
+                                        <div className="space-y-3 mb-8 flex-1">
+                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                <CheckCircleIcon /> {plan.limits.pages} صفحات
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                <CheckCircleIcon /> {plan.limits.products} منتج
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                <CheckCircleIcon /> {plan.limits.storage} MB مساحة
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                <CheckCircleIcon /> {plan.limits.visits} زيارة/شهر
+                                            </div>
+                                            <div className={`flex items-center gap-2 text-sm ${plan.features.customDomain ? 'text-gray-600' : 'text-gray-400 line-through'}`}>
+                                                {plan.features.customDomain ? <CheckCircleIcon /> : <XMarkIcon />} دومين خاص
+                                            </div>
+                                            <div className={`flex items-center gap-2 text-sm ${plan.features.ssl ? 'text-gray-600' : 'text-gray-400 line-through'}`}>
+                                                {plan.features.ssl ? <CheckCircleIcon /> : <XMarkIcon />} شهادة SSL
+                                            </div>
+                                        </div>
+
+                                        <button 
+                                            onClick={() => handleSubscribeRequest(plan)}
+                                            disabled={isCurrent || isPending}
+                                            className={`w-full py-3 rounded-xl font-bold transition ${
+                                                isCurrent 
+                                                ? 'bg-gray-200 text-gray-500 cursor-default' 
+                                                : isPending
+                                                ? 'bg-yellow-100 text-yellow-700 cursor-wait'
+                                                : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:scale-105 transform'
+                                            }`}
+                                        >
+                                            {isCurrent ? 'مشترك' : isPending ? 'قيد المراجعة...' : 'اشتراك'}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
             </div>
