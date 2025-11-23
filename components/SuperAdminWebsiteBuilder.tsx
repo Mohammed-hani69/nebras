@@ -191,7 +191,7 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
             name: editingPlan.name,
             price: editingPlan.price,
             limits: editingPlan.limits || { pages: 1, products: 0, storage: 100, visits: 1000 },
-            features: editingPlan.features || { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false },
+            features: editingPlan.features || { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false, premiumBlocks: false, premiumTemplates: false },
             allowedTemplates: editingPlan.allowedTemplates || 'all',
             allowedBlocks: editingPlan.allowedBlocks || 'all'
         };
@@ -273,7 +273,7 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                 <div className="flex gap-2">
                     {activeTab === 'templates' && <button onClick={() => { setEditingTemplate({}); setIsTemplateModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة قالب</button>}
                     {activeTab === 'units' && <button onClick={() => { setEditingBlock({}); setIsBlockModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة وحدة</button>}
-                    {activeTab === 'plans' && activePlansSubTab === 'manage' && <button onClick={() => { setEditingPlan({ limits: { pages: 1, products: 0, storage: 100, visits: 1000 }, features: { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false }, allowedTemplates: 'all', allowedBlocks: 'all' }); setIsPlanModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة باقة</button>}
+                    {activeTab === 'plans' && activePlansSubTab === 'manage' && <button onClick={() => { setEditingPlan({ limits: { pages: 1, products: 0, storage: 100, visits: 1000 }, features: { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false, premiumBlocks: false, premiumTemplates: false }, allowedTemplates: 'all', allowedBlocks: 'all' }); setIsPlanModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة باقة</button>}
                 </div>
             </div>
 
@@ -646,6 +646,14 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                                 <label className="flex items-center gap-2 text-sm cursor-pointer">
                                     <input type="checkbox" checked={editingPlan.features?.htmlCssAccess || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, htmlCssAccess: e.target.checked}})} />
                                     تعديل الكود (HTML/CSS)
+                                </label>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="checkbox" checked={editingPlan.features?.premiumBlocks || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, premiumBlocks: e.target.checked}})} />
+                                    وحدات مميزة (Premium Blocks)
+                                </label>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="checkbox" checked={editingPlan.features?.premiumTemplates || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, premiumTemplates: e.target.checked}})} />
+                                    قوالب مميزة (Premium Templates)
                                 </label>
                             </div>
 

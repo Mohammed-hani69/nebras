@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { NebrasLogo } from './icons/Icons';
+import { NebrasLogo, EyeIcon, EyeSlashIcon } from './icons/Icons';
 
 interface LoginProps {
   onLogin: (username: string, password: string) => boolean;
@@ -10,6 +10,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,15 +56,25 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             >
                 كلمة المرور
             </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition"
-              required
-              autoComplete="current-password"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition pl-10" // Added pl-10 for left padding if needed, but since RTL, padding works differently.
+                required
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                onClick={() => setShowPassword(!showPassword)}
+                title={showPassword ? "إخفاء كلمة المرور" : "عرض كلمة المرور"}
+              >
+                {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
+              </button>
+            </div>
           </div>
           {error && <p className="text-sm text-center text-red-500">{error}</p>}
           <div>

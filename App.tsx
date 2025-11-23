@@ -86,7 +86,6 @@ const App: React.FC = () => {
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
     
     // Super Admin Credentials State
-    // Initialize with defaults, in a real app load from DB or secure storage
     const [superAdminAccount, setSuperAdminAccount] = useState({
         username: 'admin@nebras.com',
         password: '123', // Default initial password
@@ -99,7 +98,7 @@ const App: React.FC = () => {
     const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
     const [marketplaceModules, setMarketplaceModules] = useState<ModuleDefinition[]>(DEFAULT_MODULES);
     
-    // Website Builder Assets (loaded from DB or defaults)
+    // Website Builder Assets
     const [webTemplates, setWebTemplates] = useState<WebTemplate[]>([]);
     const [webBlocks, setWebBlocks] = useState<BlockDefinition[]>([]);
     const [websitePlans, setWebsitePlans] = useState<BuilderPlan[]>(Object.values(SUBSCRIPTION_PLANS));
@@ -116,6 +115,7 @@ const App: React.FC = () => {
             await initDB();
             
             const loadedStores = await loadStores();
+            const currentStoresList = loadedStores || [];
             if (loadedStores) setStores(loadedStores);
 
             const loadedAiSettings = await loadAISettings();
@@ -133,12 +133,36 @@ const App: React.FC = () => {
             const loadedPlans = await loadWebsitePlans();
             if (loadedPlans) setWebsitePlans(loadedPlans);
 
-            // Ideally load super admin creds here too
             const savedAdmin = localStorage.getItem('superAdminAccount');
             if (savedAdmin) {
                 try {
                     setSuperAdminAccount(JSON.parse(savedAdmin));
                 } catch (e) { console.error('Failed to parse admin creds'); }
+            }
+
+            // Check for saved session
+            const storedSession = localStorage.getItem('mazad_session');
+            if (storedSession) {
+                try {
+                    const session = JSON.parse(storedSession);
+                    if (session.role === 'superadmin') {
+                         setIsSuperAdmin(true);
+                         setShowLanding(false);
+                    } else if (session.storeId && session.username) {
+                         const foundStore = currentStoresList.find(s => s.id === session.storeId);
+                         if (foundStore) {
+                             const foundUser = foundStore.employees.find(e => e.username === session.username);
+                             if (foundUser) {
+                                 setCurrentUser(foundUser);
+                                 setCurrentStore(foundStore);
+                                 setShowLanding(false);
+                             }
+                         }
+                    }
+                } catch (e) {
+                    console.error("Failed to restore session", e);
+                    localStorage.removeItem('mazad_session');
+                }
             }
 
             setIsLoading(false);
@@ -172,12 +196,14 @@ const App: React.FC = () => {
         if (u === superAdminAccount.username && p === superAdminAccount.password) {
             setIsSuperAdmin(true);
             setShowLanding(false);
+            localStorage.setItem('mazad_session', JSON.stringify({ role: 'superadmin' }));
             return true;
         }
         // Fallback for legacy hardcoded (optional, can remove if confident)
         if ((u === 'superadmin' && p === 'superpassword')) {
             setIsSuperAdmin(true);
             setShowLanding(false);
+            localStorage.setItem('mazad_session', JSON.stringify({ role: 'superadmin' }));
             return true;
         }
         
@@ -187,6 +213,12 @@ const App: React.FC = () => {
                 setCurrentUser(employee);
                 setCurrentStore(store);
                 setShowLanding(false);
+                // Persist session
+                localStorage.setItem('mazad_session', JSON.stringify({ 
+                    role: 'user', 
+                    storeId: store.id, 
+                    username: employee.username 
+                }));
                 return true;
             }
         }
@@ -199,6 +231,7 @@ const App: React.FC = () => {
         setIsSuperAdmin(false);
         setShowLanding(true);
         setLandingView('main');
+        localStorage.removeItem('mazad_session');
     };
 
     // Update Store Helper
