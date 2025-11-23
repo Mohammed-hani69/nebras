@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Payroll, Employee } from '../types';
 import jsPDF from 'jspdf';
@@ -101,6 +102,10 @@ const Payslip: React.FC<PayslipProps> = ({ payroll, employee, storeName, onClose
             <div className="mt-8 pt-4 border-t-4 border-double border-gray-300 flex justify-between items-center bg-gray-50 p-4 rounded-lg">
               <h3 className="text-xl font-bold">صافي الراتب المستحق</h3>
               <p className="text-2xl font-bold text-indigo-700">{payroll.netSalary.toLocaleString()} ج.م</p>
+            </div>
+            
+            <div className="text-center mt-6 text-[10px] text-gray-400">
+                تم إصدار هذا المستند إلكترونياً بواسطة نظام <span className="font-bold">مزاد بلس</span>
             </div>
           </div>
         </div>

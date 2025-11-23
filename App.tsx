@@ -48,6 +48,11 @@ import AIAssistant from './components/AIAssistant';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import PublicSiteRenderer from './components/WebsiteBuilder/PublicSiteRenderer';
 
+// Static Pages
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsAndConditions from './components/TermsAndConditions';
+import AboutUs from './components/AboutUs';
+
 // Constants
 const DEFAULT_MODULES: ModuleDefinition[] = [
     { id: 'dashboard', label: 'لوحة التحكم', category: 'basic', isCore: true, price: 0, description: 'ملخص أداء المتجر' },
@@ -82,7 +87,7 @@ const DEFAULT_AI_SETTINGS: AISettings = {
     enableSuggestions: true,
     enableDashboardInsights: true,
     enableReportAnalysis: true,
-    systemInstructions: 'أنت مساعد ذكي لنظام إدارة المتاجر نبراس.'
+    systemInstructions: 'أنت مساعد ذكي لنظام إدارة المتاجر مزاد بلس.'
 };
 
 const DEFAULT_TEMPLATES: WebTemplate[] = [
@@ -146,7 +151,8 @@ const App: React.FC = () => {
   const [isDbInitialized, setIsDbInitialized] = useState(false);
   
   // View State
-  const [showLogin, setShowLogin] = useState(false);
+  // 'landing' | 'login' | 'privacy' | 'terms' | 'about'
+  const [publicView, setPublicView] = useState<string>('landing');
 
   // Builder Assets State
   const [websiteTemplates, setWebsiteTemplates] = useState<WebTemplate[]>(DEFAULT_TEMPLATES);
@@ -207,10 +213,10 @@ const App: React.FC = () => {
             // --- SEED DEFAULT DEMO STORE ---
             const defaultStore: Store = {
                 id: 'demo-store-001',
-                name: 'متجر نبراس النموذجي',
+                name: 'متجر مزاد بلس النموذجي',
                 ownerName: 'مدير النظام',
                 ownerPhone: '0500000000',
-                ownerEmail: 'admin@nebras.com',
+                ownerEmail: 'admin@mazad-plus.com',
                 subscriptionStartDate: new Date().toISOString(),
                 subscriptionEndDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
                 subscriptionMonthlyPrice: 0,
@@ -246,7 +252,7 @@ const App: React.FC = () => {
                 purchaseOrders: [],
                 paymentHistory: [],
                 aiMessages: [],
-                billingSettings: { storeName: 'متجر نبراس النموذجي', taxNumber: '300123456700003', taxRate: 15, address: 'الرياض، المملكة العربية السعودية', phone: '920000000' },
+                billingSettings: { storeName: 'متجر مزاد بلس النموذجي', taxNumber: '300123456700003', taxRate: 15, address: 'الرياض، المملكة العربية السعودية', phone: '920000000' },
                 invoices: [],
                 inventoryMovements: [],
                 saleReturns: [],
@@ -410,7 +416,7 @@ const App: React.FC = () => {
     setCurrentStore(null);
     setIsSuperAdmin(false);
     setActiveView('dashboard');
-    setShowLogin(false);
+    setPublicView('landing'); // Reset to landing on logout
     // Clear Session
     localStorage.removeItem('nebras_session_superadmin');
     localStorage.removeItem('nebras_session_store_id');
@@ -648,7 +654,7 @@ const App: React.FC = () => {
           <div className="flex items-center justify-center h-screen bg-gray-100">
               <div className="text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">جاري تحميل النظام...</p>
+                  <p className="text-gray-600">جاري تحميل نظام مزاد بلس...</p>
               </div>
           </div>
       );
@@ -705,13 +711,23 @@ const App: React.FC = () => {
       );
   }
 
+  // Handle Non-Authenticated Views
   if (!currentUser || !currentStore) {
-    if (showLogin) {
-        return <Login onLogin={handleLogin} />;
+    switch (publicView) {
+        case 'login':
+            return <Login onLogin={handleLogin} />;
+        case 'privacy':
+            return <PrivacyPolicy onBack={() => setPublicView('landing')} />;
+        case 'terms':
+            return <TermsAndConditions onBack={() => setPublicView('landing')} />;
+        case 'about':
+            return <AboutUs onBack={() => setPublicView('landing')} />;
+        default:
+            return <LandingPage onNavigateToLogin={() => setPublicView('login')} onNavigate={(page) => setPublicView(page)} />;
     }
-    return <LandingPage onNavigateToLogin={() => setShowLogin(true)} />;
   }
 
+  // --- Authenticated App Logic ---
   const enabledModuleDefs = marketplaceModules.filter(m => currentStore.enabledModules.includes(m.id) || m.isCore);
   const userRole = currentStore.roles.find(r => r.id === currentUser.roleId);
   const navItems = enabledModuleDefs.filter(m => 

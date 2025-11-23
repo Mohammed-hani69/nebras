@@ -1,4 +1,6 @@
 
+
+
 import React, { useRef, useState, useEffect } from 'react';
 import type { Invoice, Quotation, PurchaseOrder, Store } from '../types';
 import jsPDF from 'jspdf';
@@ -49,9 +51,6 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ document, type, store, on
                 logging: false,
                 backgroundColor: '#ffffff',
                 allowTaint: true,
-                // CRITICAL FOR ARABIC: Must be false. 
-                // True splits text into individual letters, breaking Arabic ligatures (connections).
-                letterRendering: false, 
                 onclone: (clonedDoc) => {
                     const clonedElement = clonedDoc.getElementById('printable-area');
                     if (clonedElement) {
@@ -90,7 +89,7 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ document, type, store, on
             pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, (imgHeight * pdfWidth) / imgWidth);
             
             setGenerationProgress(95);
-            pdf.save(`Nebras-${type}-${document.id}.pdf`);
+            pdf.save(`MazadPlus-${type}-${document.id}.pdf`);
             setGenerationProgress(100);
 
         } catch (error) {
@@ -377,7 +376,7 @@ const InvoiceViewer: React.FC<InvoiceViewerProps> = ({ document, type, store, on
                                 </div>
                             </div>
                             <div className="text-center mt-6 text-[10px] text-gray-400">
-                                تم إصدار هذا المستند إلكترونياً بواسطة نظام <span className="font-bold">نبراس</span> لإدارة المتاجر
+                                تم إصدار هذا المستند إلكترونياً بواسطة نظام <span className="font-bold">مزاد بلس</span> لإدارة المتاجر
                             </div>
                         </div>
                     </div>

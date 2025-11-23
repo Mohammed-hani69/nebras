@@ -2,11 +2,9 @@
 import React from 'react';
 
 export const NebrasLogo: React.FC = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-500" viewBox="0 0 24 24" fill="currentColor">
-    {/* Stylized 'N' shape */}
-    <path d="M14,4L6,14V4H4v12h2l8-10v10h2V4H14z" />
-    {/* Spark/Star element */}
-    <path d="M20,2c-0.5,0-1,0.2-1.4,0.6l-1.6,1.6c-0.8,0.8-0.8,2,0,2.8s2,0.8,2.8,0l1.6-1.6c0.8-0.8,0.8-2,0-2.8C21,2.2,20.5,2,20,2z" />
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-600" viewBox="0 0 40 40" fill="none">
+    <path d="M8 32L8 8L20 24L32 8V32" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="34" cy="6" r="3" fill="#ec4899" />
   </svg>
 );
 
@@ -42,7 +40,7 @@ export const BanknotesIcon: React.FC = () => (
 );
 
 export const SparklesIcon: React.FC = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
   </svg>
 );

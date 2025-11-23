@@ -1,6 +1,6 @@
 {
-  "name": "nebras system",
-  "description": "نظام إدارة موارد متكامل وشامل (CRM, Sales, Inventory, HR) مصمم للشركات العربية.",
+  "name": "mazad-plus",
+  "description": "مزاد بلس - نظام ERP سحابي متكامل لإدارة المتاجر، المزادات، والمخزون. حلول ذكية لنقاط البيع (POS) والتجارة الإلكترونية في السعودية ومصر.",
   "requestFramePermissions": [
     "microphone"
   ]

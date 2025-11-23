@@ -4,7 +4,7 @@ import type { Store, AISettings, WebTemplate, WebBlock, BuilderAuditLog, Builder
 import { 
     LayoutIcon, CubeIcon, BriefcaseIcon, GlobeAltIcon, 
     StoreIcon, PhotoIcon, ClipboardListIcon, PlusIcon, SparklesIcon, TrashIcon, PencilIcon,
-    CheckCircleIcon, CogIcon, DocumentTextIcon, CloudArrowUpIcon, XMarkIcon, BellIcon
+    CheckCircleIcon, CogIcon, DocumentTextIcon, CloudArrowUpIcon, XMarkIcon, BellIcon, LockClosedIcon, LockOpenIcon
 } from './icons/Icons';
 import { generateBuilderComponent } from '../services/geminiService';
 
@@ -30,9 +30,9 @@ const INITIAL_MEDIA: GlobalMediaItem[] = [
 ];
 
 const TABS = [
+    { id: 'plans', label: 'الباقات والاشتراكات', icon: <BriefcaseIcon /> },
     { id: 'templates', label: 'القوالب', icon: <LayoutIcon /> },
     { id: 'units', label: 'الوحدات (Blocks)', icon: <CubeIcon /> },
-    { id: 'plans', label: 'الباقات والاشتراكات', icon: <BriefcaseIcon /> },
     { id: 'domains', label: 'الدومينات', icon: <GlobeAltIcon /> },
     { id: 'media', label: 'الوسائط', icon: <PhotoIcon /> },
     { id: 'seo', label: 'SEO', icon: <SparklesIcon /> },
@@ -212,6 +212,26 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
         addLog('Delete Plan', id);
     };
 
+    const toggleAllowedItem = (type: 'template' | 'block', id: string) => {
+        const field = type === 'template' ? 'allowedTemplates' : 'allowedBlocks';
+        const current = editingPlan[field] || 'all';
+        
+        if (current === 'all') {
+            setEditingPlan({ ...editingPlan, [field]: [id] });
+        } else {
+            const list = Array.isArray(current) ? current : [];
+            const newList = list.includes(id) 
+                ? list.filter(x => x !== id)
+                : [...list, id];
+            setEditingPlan({ ...editingPlan, [field]: newList });
+        }
+    };
+
+    const setAllowedAll = (type: 'template' | 'block', isAll: boolean) => {
+        const field = type === 'template' ? 'allowedTemplates' : 'allowedBlocks';
+        setEditingPlan({ ...editingPlan, [field]: isAll ? 'all' : [] });
+    };
+
     // --- Subscription Requests Logic ---
     const pendingRequests = useMemo(() => {
         return stores
@@ -253,7 +273,7 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                 <div className="flex gap-2">
                     {activeTab === 'templates' && <button onClick={() => { setEditingTemplate({}); setIsTemplateModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة قالب</button>}
                     {activeTab === 'units' && <button onClick={() => { setEditingBlock({}); setIsBlockModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة وحدة</button>}
-                    {activeTab === 'plans' && activePlansSubTab === 'manage' && <button onClick={() => { setEditingPlan({ limits: { pages: 1, products: 0, storage: 100, visits: 1000 }, features: { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false } }); setIsPlanModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة باقة</button>}
+                    {activeTab === 'plans' && activePlansSubTab === 'manage' && <button onClick={() => { setEditingPlan({ limits: { pages: 1, products: 0, storage: 100, visits: 1000 }, features: { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false }, allowedTemplates: 'all', allowedBlocks: 'all' }); setIsPlanModalOpen(true); }} className="bg-indigo-600 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon /> إضافة باقة</button>}
                 </div>
             </div>
 
@@ -333,7 +353,10 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
 
                         {activePlansSubTab === 'manage' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {plans.map(p => (
+                                {plans.map(p => {
+                                    const isRestrictedTemplates = Array.isArray(p.allowedTemplates);
+                                    const isRestrictedBlocks = Array.isArray(p.allowedBlocks);
+                                    return (
                                     <div key={p.id} className="border rounded-xl p-6 hover:shadow-lg transition relative group bg-white">
                                         <div className="flex justify-between items-start mb-4">
                                             <div>
@@ -365,22 +388,30 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                                             </div>
                                         </div>
 
-                                        <div className="space-y-2">
-                                            <div className={`flex items-center gap-2 text-sm ${p.features.customDomain ? 'text-green-700' : 'text-gray-400'}`}>
+                                        <div className="space-y-2 text-sm">
+                                            <div className={`flex items-center gap-2 ${p.features.customDomain ? 'text-green-700' : 'text-gray-400'}`}>
                                                 {p.features.customDomain ? <CheckCircleIcon /> : <XMarkIcon />} دومين خاص
                                             </div>
-                                            <div className={`flex items-center gap-2 text-sm ${p.features.ssl ? 'text-green-700' : 'text-gray-400'}`}>
+                                            <div className={`flex items-center gap-2 ${p.features.ssl ? 'text-green-700' : 'text-gray-400'}`}>
                                                 {p.features.ssl ? <CheckCircleIcon /> : <XMarkIcon />} شهادة SSL
                                             </div>
-                                            <div className={`flex items-center gap-2 text-sm ${p.features.builderAccess ? 'text-green-700' : 'text-gray-400'}`}>
+                                            <div className={`flex items-center gap-2 ${p.features.builderAccess ? 'text-green-700' : 'text-gray-400'}`}>
                                                 {p.features.builderAccess ? <CheckCircleIcon /> : <XMarkIcon />} وصول للمنشئ
                                             </div>
-                                            <div className={`flex items-center gap-2 text-sm ${p.features.htmlCssAccess ? 'text-green-700' : 'text-gray-400'}`}>
+                                            <div className={`flex items-center gap-2 ${p.features.htmlCssAccess ? 'text-green-700' : 'text-gray-400'}`}>
                                                 {p.features.htmlCssAccess ? <CheckCircleIcon /> : <XMarkIcon />} تعديل HTML/CSS
+                                            </div>
+                                            <div className="flex items-center gap-2 pt-2 border-t mt-2 text-gray-600">
+                                                {isRestrictedTemplates ? <LockClosedIcon /> : <LockOpenIcon />} 
+                                                <span>{isRestrictedTemplates ? 'قوالب محددة' : 'كل القوالب'}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-gray-600">
+                                                {isRestrictedBlocks ? <LockClosedIcon /> : <LockOpenIcon />} 
+                                                <span>{isRestrictedBlocks ? 'وحدات محددة' : 'كل الوحدات'}</span>
                                             </div>
                                         </div>
                                     </div>
-                                ))}
+                                )})}
                             </div>
                         )}
 
@@ -558,21 +589,26 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
             {/* Plan Modal */}
             {isPlanModalOpen && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
                         <h3 className="text-xl font-bold mb-4">{editingPlan.id ? 'تعديل باقة' : 'باقة جديدة'}</h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm mb-1">اسم الباقة</label>
-                                <input type="text" value={editingPlan.name || ''} onChange={e => setEditingPlan({...editingPlan, name: e.target.value})} className="w-full p-2 border rounded" />
-                            </div>
-                            <div>
-                                <label className="block text-sm mb-1">السعر</label>
-                                <input type="number" value={editingPlan.price || 0} onChange={e => setEditingPlan({...editingPlan, price: parseFloat(e.target.value)})} className="w-full p-2 border rounded" />
+                        <div className="space-y-6">
+                            {/* General Info */}
+                            <div className="space-y-4">
+                                <h4 className="font-bold text-gray-700 text-sm border-b pb-1">المعلومات الأساسية</h4>
+                                <div>
+                                    <label className="block text-sm mb-1">اسم الباقة</label>
+                                    <input type="text" value={editingPlan.name || ''} onChange={e => setEditingPlan({...editingPlan, name: e.target.value})} className="w-full p-2 border rounded" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm mb-1">السعر (ج.م)</label>
+                                    <input type="number" value={editingPlan.price || 0} onChange={e => setEditingPlan({...editingPlan, price: parseFloat(e.target.value)})} className="w-full p-2 border rounded" />
+                                </div>
                             </div>
                             
-                            <div className="bg-gray-50 p-3 rounded border">
-                                <h4 className="font-bold text-gray-700 mb-2 text-sm">الحدود (Limits)</h4>
-                                <div className="grid grid-cols-2 gap-2 text-sm">
+                            {/* Limits */}
+                            <div className="bg-gray-50 p-3 rounded border space-y-4">
+                                <h4 className="font-bold text-gray-700 text-sm border-b pb-1">الحدود (Limits)</h4>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
                                     <div>
                                         <label>الصفحات</label>
                                         <input type="number" value={editingPlan.limits?.pages || 0} onChange={e => setEditingPlan({...editingPlan, limits: {...editingPlan.limits!, pages: parseInt(e.target.value)}})} className="w-full p-1 border rounded" />
@@ -586,37 +622,88 @@ const SuperAdminWebsiteBuilder: React.FC<SuperAdminWebsiteBuilderProps> = ({
                                         <input type="number" value={editingPlan.limits?.storage || 0} onChange={e => setEditingPlan({...editingPlan, limits: {...editingPlan.limits!, storage: parseInt(e.target.value)}})} className="w-full p-1 border rounded" />
                                     </div>
                                     <div className="col-span-2">
-                                        <label>الزيارات</label>
+                                        <label>الزيارات الشهرية</label>
                                         <input type="number" value={editingPlan.limits?.visits || 0} onChange={e => setEditingPlan({...editingPlan, limits: {...editingPlan.limits!, visits: parseInt(e.target.value)}})} className="w-full p-1 border rounded" />
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="bg-gray-50 p-3 rounded border">
-                                <h4 className="font-bold text-gray-700 mb-2 text-sm">المميزات</h4>
-                                <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-sm">
-                                        <input type="checkbox" checked={editingPlan.features?.customDomain || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, customDomain: e.target.checked}})} />
-                                        دومين خاص
-                                    </label>
-                                    <label className="flex items-center gap-2 text-sm">
-                                        <input type="checkbox" checked={editingPlan.features?.ssl || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, ssl: e.target.checked}})} />
-                                        شهادة SSL
-                                    </label>
-                                    <label className="flex items-center gap-2 text-sm">
-                                        <input type="checkbox" checked={editingPlan.features?.builderAccess || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, builderAccess: e.target.checked}})} />
-                                        وصول للمنشئ
-                                    </label>
-                                    <label className="flex items-center gap-2 text-sm">
-                                        <input type="checkbox" checked={editingPlan.features?.htmlCssAccess || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, htmlCssAccess: e.target.checked}})} />
-                                        تعديل كود (HTML/CSS)
-                                    </label>
+                            {/* Features */}
+                            <div className="bg-gray-50 p-3 rounded border space-y-2">
+                                <h4 className="font-bold text-gray-700 text-sm border-b pb-1">المميزات التقنية</h4>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="checkbox" checked={editingPlan.features?.customDomain || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, customDomain: e.target.checked}})} />
+                                    دومين خاص (Custom Domain)
+                                </label>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="checkbox" checked={editingPlan.features?.ssl || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, ssl: e.target.checked}})} />
+                                    شهادة أمان (SSL)
+                                </label>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="checkbox" checked={editingPlan.features?.builderAccess || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, builderAccess: e.target.checked}})} />
+                                    وصول للمنشئ المرئي
+                                </label>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="checkbox" checked={editingPlan.features?.htmlCssAccess || false} onChange={e => setEditingPlan({...editingPlan, features: {...editingPlan.features!, htmlCssAccess: e.target.checked}})} />
+                                    تعديل الكود (HTML/CSS)
+                                </label>
+                            </div>
+
+                            {/* Permissions - Templates & Blocks */}
+                            <div className="bg-indigo-50 p-3 rounded border border-indigo-100 space-y-4">
+                                <h4 className="font-bold text-indigo-800 text-sm border-b border-indigo-200 pb-1">صلاحيات الوصول (Permissions)</h4>
+                                
+                                {/* Templates Access */}
+                                <div>
+                                    <label className="block text-xs font-bold text-indigo-700 mb-2">القوالب المسموحة</label>
+                                    <div className="flex gap-3 mb-2 text-sm">
+                                        <label className="flex items-center gap-1 cursor-pointer">
+                                            <input type="radio" checked={editingPlan.allowedTemplates === 'all'} onChange={() => setAllowedAll('template', true)} name="tpl_access" /> الكل
+                                        </label>
+                                        <label className="flex items-center gap-1 cursor-pointer">
+                                            <input type="radio" checked={Array.isArray(editingPlan.allowedTemplates)} onChange={() => setAllowedAll('template', false)} name="tpl_access" /> محددة
+                                        </label>
+                                    </div>
+                                    {Array.isArray(editingPlan.allowedTemplates) && (
+                                        <div className="max-h-24 overflow-y-auto bg-white border rounded p-2 space-y-1">
+                                            {templates.map(t => (
+                                                <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                                                    <input type="checkbox" checked={(editingPlan.allowedTemplates as string[]).includes(t.id)} onChange={() => toggleAllowedItem('template', t.id)} />
+                                                    {t.name} ({t.isPremium ? 'Premium' : 'Free'})
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Blocks Access */}
+                                <div>
+                                    <label className="block text-xs font-bold text-indigo-700 mb-2">الوحدات المسموحة (Blocks)</label>
+                                    <div className="flex gap-3 mb-2 text-sm">
+                                        <label className="flex items-center gap-1 cursor-pointer">
+                                            <input type="radio" checked={editingPlan.allowedBlocks === 'all'} onChange={() => setAllowedAll('block', true)} name="blk_access" /> الكل
+                                        </label>
+                                        <label className="flex items-center gap-1 cursor-pointer">
+                                            <input type="radio" checked={Array.isArray(editingPlan.allowedBlocks)} onChange={() => setAllowedAll('block', false)} name="blk_access" /> محددة
+                                        </label>
+                                    </div>
+                                    {Array.isArray(editingPlan.allowedBlocks) && (
+                                        <div className="max-h-24 overflow-y-auto bg-white border rounded p-2 space-y-1">
+                                            {blocks.map(b => (
+                                                <label key={b.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                                                    <input type="checkbox" checked={(editingPlan.allowedBlocks as string[]).includes(b.id)} onChange={() => toggleAllowedItem('block', b.id)} />
+                                                    {b.label}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
+
                         <div className="flex justify-end gap-2 mt-6">
-                            <button onClick={savePlan} className="bg-green-600 text-white px-4 py-2 rounded">حفظ</button>
-                            <button onClick={() => setIsPlanModalOpen(false)} className="bg-gray-300 px-4 py-2 rounded">إلغاء</button>
+                            <button onClick={savePlan} className="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700">حفظ الباقة</button>
+                            <button onClick={() => setIsPlanModalOpen(false)} className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">إلغاء</button>
                         </div>
                     </div>
                 </div>

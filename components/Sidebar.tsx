@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import { ChartBarIcon, CubeIcon, ShoppingCartIcon, WrenchScrewdriverIcon, BanknotesIcon, UsersIcon, LogoutIcon, PresentationChartLineIcon, BrainIcon, DocumentChartBarIcon, NebrasLogo, IdentificationIcon, TruckIcon, QuestionMarkCircleIcon, StoreIcon, ChevronDownIcon, CalendarDaysIcon, ClipboardListIcon, BriefcaseIcon, DocumentDuplicateIcon, ArrowPathRoundedSquareIcon, BellIcon, TicketIcon, BuildingLibraryIcon, BookOpenIcon, ChatBubbleLeftRightIcon, LifebuoyIcon, GlobeAltIcon } from './icons/Icons';
 
@@ -95,7 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLo
       <div className="p-5 flex items-center justify-center border-b border-slate-700">
         <div className="flex items-center space-x-2">
           <NebrasLogo />
-          <h1 className="text-2xl font-bold tracking-wider">نبراس</h1>
+          <h1 className="text-2xl font-bold tracking-wider">مزاد بلس</h1>
         </div>
       </div>
 

@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { NebrasLogo } from './icons/Icons';
 
@@ -26,7 +28,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <div className="text-center">
             <div className="flex items-center justify-center space-x-3 mb-4">
                 <NebrasLogo />
-                <h1 className="text-3xl font-bold text-gray-800">نبراس</h1>
+                <h1 className="text-3xl font-bold text-gray-800">مزاد بلس</h1>
             </div>
             <p className="text-gray-600">دليلك الذكي لإدارة متجرك</p>
         </div>

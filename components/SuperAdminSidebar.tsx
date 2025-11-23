@@ -1,5 +1,7 @@
 
-import React from 'react';
+
+
+import React, { useState } from 'react';
 import { NebrasLogo, CubeIcon, BanknotesIcon, LogoutIcon, ChartPieIcon, CogIcon, StoreIcon, ServerStackIcon, ShieldCheckIcon, GlobeAltIcon, LifebuoyIcon, LayoutIcon } from './icons/Icons';
 
 interface SuperAdminSidebarProps {
@@ -27,7 +29,7 @@ const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ activeView, setAc
       <div>
         <div className="flex items-center space-x-3 mb-10 px-2">
           <NebrasLogo />
-          <h1 className="text-2xl font-bold">نبراس</h1>
+          <h1 className="text-2xl font-bold">مزاد بلس</h1>
         </div>
         <ul className="space-y-2">
           {navItems.map(item => (
