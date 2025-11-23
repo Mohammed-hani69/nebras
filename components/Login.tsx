@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { NebrasLogo } from './icons/Icons';
 
@@ -74,10 +75,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </button>
           </div>
         </form>
-        <div className="text-center text-xs text-gray-400">
-            <p>admin/password</p>
-            <p>cashier/123</p>
-        </div>
       </div>
     </div>
   );

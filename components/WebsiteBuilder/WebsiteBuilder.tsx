@@ -396,8 +396,8 @@ const WebsiteBuilder: React.FC<WebsiteBuilderProps> = ({ store, updateStore, ava
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-800">لوحة تحكم المتجر الإلكتروني</h1>
-                        <a href={`#site/${store.id}`} target="_blank" rel="noreferrer" className="text-sm text-indigo-600 hover:underline flex items-center gap-1">
-                            {store.website?.subdomain}.nebras.app <EyeIcon />
+                        <a href={`#site/${store.website?.subdomain}`} target="_blank" rel="noreferrer" className="text-sm text-indigo-600 hover:underline flex items-center gap-1">
+                            {`#site/${store.website?.subdomain}`} <EyeIcon />
                         </a>
                     </div>
                 </div>

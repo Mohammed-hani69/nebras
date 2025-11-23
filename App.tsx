@@ -1,62 +1,76 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { 
+  initDB, 
+  loadStores, 
+  saveStores, 
+  loadAISettings, 
+  saveAISettings, 
+  loadMarketplaceSettings, 
+  saveMarketplaceSettings, 
+  loadBuilderAssets, 
+  saveBuilderAssets, 
+  loadWebsitePlans, 
+  saveWebsitePlans 
+} from './services/db';
+import { getAiSuggestions } from './services/geminiService';
+import type { Store, Employee, AISettings, ModuleDefinition, CostCenter, ActivityLog, SupportTicket, TicketMessage, TicketStatus, JournalEntry, JournalLine, OnlineOrder, WebTemplate, BlockDefinition, BuilderPlan } from './types';
+
+// Component Imports
 import Login from './components/Login';
-import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
+import Sidebar from './components/Sidebar';
 import Inventory from './components/Inventory';
 import POS from './components/POS';
-import InvoicingModule from './components/InvoicingModule';
-import ServiceLog from './components/ServiceLog';
 import Expenses from './components/Expenses';
-import FinancialDashboard from './components/FinancialDashboard';
-import GeneralReports from './components/GeneralReports';
+import InvoicingModule from './components/InvoicingModule';
+import NotificationsCenter from './components/NotificationsCenter';
 import HRManagement from './components/HRManagement';
 import CustomerManagement from './components/CustomerManagement';
+import ServiceLog from './components/ServiceLog';
+import FinancialDashboard from './components/FinancialDashboard';
+import GeneralReports from './components/GeneralReports';
 import SuppliersManagement from './components/SuppliersManagement';
-import AIAssistant from './components/AIAssistant';
 import AIMessages from './components/AIMessages';
 import UserGuide from './components/UserGuide';
 import Installments from './components/Installments';
 import ActivityLogComponent from './components/ActivityLog';
 import ReturnsRefunds from './components/ReturnsRefunds';
-import NotificationsCenter from './components/NotificationsCenter';
 import SupportTicketing from './components/SupportTicketing';
 import TreasuryBanking from './components/TreasuryBanking';
 import GeneralLedger from './components/GeneralLedger';
-import ModuleMarketplace from './components/ModuleMarketplace';
-import SuperAdminDashboard from './components/SuperAdminDashboard';
 import CustomerServiceAI from './components/CustomerServiceAI';
+import ModuleMarketplace from './components/ModuleMarketplace';
 import StoreSystemSupport from './components/StoreSystemSupport';
 import WebsiteBuilder from './components/WebsiteBuilder/WebsiteBuilder';
+import AIAssistant from './components/AIAssistant';
+import SuperAdminDashboard from './components/SuperAdminDashboard';
 import PublicSiteRenderer from './components/WebsiteBuilder/PublicSiteRenderer';
 
-import { initDB, loadStores, saveStores, loadAISettings, saveAISettings, loadMarketplaceSettings, saveMarketplaceSettings, loadBuilderAssets, saveBuilderAssets, loadWebsitePlans, saveWebsitePlans } from './services/db';
-import { getAiSuggestions } from './services/geminiService';
-import type { Store, Employee, AISettings, ModuleDefinition, CostCenter, ActivityLog, SupportTicket, TicketMessage, TicketStatus, JournalEntry, JournalLine, OnlineOrder, WebTemplate, BlockDefinition, BuilderPlan } from './types';
-
+// Constants
 const DEFAULT_MODULES: ModuleDefinition[] = [
-    { id: 'dashboard', label: 'لوحة التحكم', description: 'نظرة عامة على أداء المتجر', price: 0, category: 'basic', isCore: true, isVisible: true },
-    { id: 'pos', label: 'نقطة البيع (POS)', description: 'إدارة المبيعات اليومية', price: 0, category: 'basic', isCore: true, isVisible: true },
-    { id: 'inventory', label: 'المخزون', description: 'تتبع المنتجات والكميات', price: 0, category: 'basic', isCore: true, isVisible: true },
-    { id: 'expenses', label: 'المصروفات', description: 'تسجيل المصاريف التشغيلية', price: 0, category: 'basic', isCore: true, isVisible: true },
-    { id: 'invoicing', label: 'الفواتير وعروض الأسعار', description: 'إصدار الفواتير وعروض الأسعار', price: 0, category: 'basic', isCore: true, isVisible: true },
-    { id: 'services', label: 'الصيانة', description: 'إدارة طلبات الصيانة', price: 100, category: 'advanced', isCore: false, isVisible: true },
-    { id: 'customer-management', label: 'إدارة العملاء (CRM)', description: 'قاعدة بيانات العملاء والديون', price: 150, category: 'advanced', isCore: false, isVisible: true },
-    { id: 'suppliers-management', label: 'الموردين', description: 'إدارة الموردين والمشتريات', price: 100, category: 'advanced', isCore: false, isVisible: true },
-    { id: 'hr-management', label: 'الموارد البشرية', description: 'شؤون الموظفين والرواتب', price: 200, category: 'premium', isCore: false, isVisible: true },
-    { id: 'financial-reports', label: 'التقارير المالية', description: 'تحليل مالي متقدم', price: 250, category: 'premium', isCore: false, isVisible: true },
-    { id: 'general-reports', label: 'التقارير العامة', description: 'تقارير المبيعات والمخزون', price: 0, category: 'basic', isCore: true, isVisible: true },
-    { id: 'ai-assistant', label: 'المساعد الذكي', description: 'رؤى ونصائح بالذكاء الاصطناعي', price: 300, category: 'premium', isCore: false, isVisible: true },
-    { id: 'installments', label: 'التقسيط', description: 'إدارة مبيعات التقسيط', price: 150, category: 'advanced', isCore: false, isVisible: true },
-    { id: 'returns-refunds', label: 'المرتجعات', description: 'إدارة المردودات', price: 50, category: 'basic', isCore: false, isVisible: true },
-    { id: 'activity-log', label: 'سجل الحركات', description: 'مراقبة نشاط المستخدمين', price: 100, category: 'advanced', isCore: false, isVisible: true },
-    { id: 'notifications-center', label: 'مركز الإشعارات', description: 'تنبيهات النظام والمخزون', price: 0, category: 'basic', isCore: true, isVisible: true },
-    { id: 'support-ticketing', label: 'الدعم الفني والبلاغات', description: 'نظام تذاكر الدعم الداخلي', price: 150, category: 'advanced', isCore: false, isVisible: true },
-    { id: 'treasury-banking', label: 'الخزينة والبنوك', description: 'إدارة السيولة والحسابات البنكية', price: 200, category: 'premium', isCore: false, isVisible: true },
-    { id: 'general-ledger', label: 'دفتر الأستاذ (GL)', description: 'المحاسبة العامة والقيود', price: 300, category: 'premium', isCore: false, isVisible: true },
-    { id: 'customer-service-ai', label: 'ذكاء خدمة العملاء', description: 'بوت واتساب وتحليل محادثات', price: 200, category: 'advanced', isCore: false, isVisible: true },
-    { id: 'website-builder', label: 'بناء المتجر الإلكتروني', description: 'أنشئ موقعاً تعريفياً أو متجراً للبيع أونلاين', price: 400, category: 'premium', isCore: false, isVisible: true },
-    { id: 'user-guide', label: 'دليل المستخدم', description: 'شرح استخدام النظام', price: 0, category: 'basic', isCore: true, isVisible: true },
+    { id: 'dashboard', label: 'لوحة التحكم', category: 'basic', isCore: true, price: 0, description: 'ملخص أداء المتجر' },
+    { id: 'inventory', label: 'المخزون', category: 'basic', isCore: true, price: 0, description: 'إدارة المنتجات والمخزون' },
+    { id: 'pos', label: 'نقطة البيع', category: 'basic', isCore: true, price: 0, description: 'بيع مباشر' },
+    { id: 'invoicing', label: 'الفواتير', category: 'basic', isCore: true, price: 0, description: 'إدارة الفواتير' },
+    { id: 'services', label: 'الصيانة', category: 'basic', isCore: false, price: 0, description: 'سجل الصيانة' },
+    { id: 'expenses', label: 'المصروفات', category: 'basic', isCore: true, price: 0, description: 'تتبع المصروفات' },
+    { id: 'financial-reports', label: 'التقارير المالية', category: 'advanced', isCore: false, price: 100, description: 'تقارير مالية متقدمة' },
+    { id: 'general-reports', label: 'التقارير العامة', category: 'basic', isCore: true, price: 0, description: 'تقارير عامة' },
+    { id: 'hr-management', label: 'الموارد البشرية', category: 'advanced', isCore: false, price: 150, description: 'إدارة الموظفين' },
+    { id: 'customer-management', label: 'إدارة العملاء', category: 'basic', isCore: true, price: 0, description: 'إدارة العملاء' },
+    { id: 'suppliers-management', label: 'الموردين', category: 'basic', isCore: true, price: 0, description: 'إدارة الموردين' },
+    { id: 'ai-assistant', label: 'المساعد الذكي', category: 'premium', isCore: false, price: 200, description: 'مساعد ذكي' },
+    { id: 'user-guide', label: 'دليل المستخدم', category: 'basic', isCore: true, price: 0, description: 'دليل الاستخدام' },
+    { id: 'installments', label: 'التقسيط', category: 'advanced', isCore: false, price: 100, description: 'إدارة الأقساط' },
+    { id: 'activity-log', label: 'سجل الحركات', category: 'advanced', isCore: false, price: 50, description: 'سجل حركات النظام' },
+    { id: 'returns-refunds', label: 'المرتجع', category: 'basic', isCore: true, price: 0, description: 'إدارة المرتجعات' },
+    { id: 'notifications-center', label: 'مركز الإشعارات', category: 'basic', isCore: true, price: 0, description: 'الإشعارات' },
+    { id: 'support-ticketing', label: 'الدعم الفني', category: 'basic', isCore: true, price: 0, description: 'نظام تذاكر الدعم' },
+    { id: 'treasury-banking', label: 'الخزينة والبنوك', category: 'advanced', isCore: true, price: 0, description: 'إدارة السيولة' },
+    { id: 'general-ledger', label: 'دفتر الأستاذ', category: 'premium', isCore: false, price: 300, description: 'المحاسبة العامة' },
+    { id: 'customer-service-ai', label: 'خدمة العملاء الذكية', category: 'premium', isCore: false, price: 250, description: 'ذكاء اصطناعي لخدمة العملاء' },
+    { id: 'website-builder', label: 'منشئ المواقع', category: 'premium', isCore: false, price: 400, description: 'إنشاء متجر إلكتروني' },
 ];
 
 const DEFAULT_AI_SETTINGS: AISettings = {
@@ -67,49 +81,23 @@ const DEFAULT_AI_SETTINGS: AISettings = {
     enableSuggestions: true,
     enableDashboardInsights: true,
     enableReportAnalysis: true,
-    systemInstructions: 'أنت مساعد ذكي في نظام إدارة موارد المؤسسات (ERP) المخصص لمتاجر التجزئة والصيانة...'
+    systemInstructions: 'أنت مساعد ذكي لنظام إدارة المتاجر نبراس.'
 };
 
-// --- Default Builder Assets ---
 const DEFAULT_TEMPLATES: WebTemplate[] = [
     {
-        id: 'default-store',
-        name: 'متجر أساسي',
+        id: 'temp-1',
+        name: 'المتجر العصري',
         type: 'store',
         isPremium: false,
-        thumbnail: 'https://placehold.co/300x200/e2e8f0/1e293b?text=Basic+Store',
-        defaultTheme: { primaryColor: '#4f46e5', secondaryColor: '#10b981', fontFamily: 'Tajawal' },
+        thumbnail: 'https://placehold.co/600x400/indigo/white?text=Modern+Store',
+        defaultTheme: { primaryColor: '#4f46e5', secondaryColor: '#ffffff', fontFamily: 'Tajawal' },
         defaultPages: [
-            {
-                id: 'home',
-                slug: '/',
-                title: 'الرئيسية',
-                isHome: true,
+            { 
+                id: 'home', slug: 'home', title: 'الرئيسية', isHome: true, 
                 blocks: [
-                    { id: 'h1', type: 'hero', content: { title: `أهلاً بك في متجرنا`, subtitle: 'أفضل المنتجات بأفضل الأسعار', buttonText: 'تسوق الآن' } },
-                    { id: 'p1', type: 'product_grid', content: { title: 'منتجات مختارة', limit: 4 } },
-                    { id: 'c1', type: 'contact_form', content: { title: 'تواصل معنا' } }
-                ]
-            }
-        ]
-    },
-    {
-        id: 'company-simple',
-        name: 'تعريفي بسيط',
-        type: 'company',
-        isPremium: false,
-        thumbnail: 'https://placehold.co/300x200/e2e8f0/1e293b?text=Simple+Company',
-        defaultTheme: { primaryColor: '#2563eb', secondaryColor: '#64748b', fontFamily: 'Tajawal' },
-        defaultPages: [
-            {
-                id: 'home',
-                slug: '/',
-                title: 'الرئيسية',
-                isHome: true,
-                blocks: [
-                    { id: 'h1', type: 'hero', content: { title: `خدمات احترافية`, subtitle: 'نقدم حلولاً متكاملة لأعمالك', buttonText: 'اعرف المزيد' } },
-                    { id: 'f1', type: 'features', content: { title: 'خدماتنا' } },
-                    { id: 'c1', type: 'contact_form', content: { title: 'اطلب استشارة' } }
+                    { id: 'b1', type: 'hero', category: 'marketing', isPremium: false, content: { title: 'أهلاً بك في متجرنا', subtitle: 'أفضل المنتجات بأفضل الأسعار', buttonText: 'تسوق الآن' }, style: {} },
+                    { id: 'b2', type: 'product_grid', category: 'commerce', isPremium: false, content: { title: 'أحدث المنتجات', limit: 4 }, style: {} }
                 ]
             }
         ]
@@ -117,21 +105,33 @@ const DEFAULT_TEMPLATES: WebTemplate[] = [
 ];
 
 const DEFAULT_BLOCK_DEFINITIONS: BlockDefinition[] = [
-    { id: 'hero-def', type: 'hero', label: 'واجهة رئيسية (Hero)', icon: '🖼️', category: 'marketing', isPremium: false, defaultContent: { title: 'عنوان رئيسي جديد', subtitle: 'أضف وصفاً جذاباً هنا', buttonText: 'اضغط هنا' }, defaultStyle: { padding: '2rem', backgroundColor: '#ffffff', textAlign: 'center' } },
-    { id: 'text-def', type: 'text', label: 'محتوى نصي', icon: '📝', category: 'basic', isPremium: false, defaultContent: { text: 'اكتب النص الخاص بك هنا...' }, defaultStyle: { padding: '2rem', backgroundColor: '#ffffff' } },
-    { id: 'product-grid-def', type: 'product_grid', label: 'شبكة منتجات', icon: '🛍️', category: 'commerce', isPremium: false, defaultContent: { title: 'منتجات مختارة', limit: 4 }, defaultStyle: { padding: '2rem' } },
-    { id: 'features-def', type: 'features', label: 'المميزات والخدمات', icon: '✨', category: 'marketing', isPremium: false, defaultContent: { title: 'مميزاتنا' }, defaultStyle: { padding: '2rem' } },
-    { id: 'contact-form-def', type: 'contact_form', label: 'نموذج تواصل', icon: '📧', category: 'basic', isPremium: false, defaultContent: { title: 'تواصل معنا' }, defaultStyle: { padding: '2rem' } },
-    { id: 'footer-def', type: 'footer', label: 'تذييل الصفحة', icon: '🦶', category: 'basic', isPremium: false, defaultContent: { copyright: `© ${new Date().getFullYear()} جميع الحقوق محفوظة.` }, defaultStyle: { backgroundColor: '#111827', color: '#ffffff' } },
-    // Premium
-    { id: 'video-def', type: 'video', label: 'مشغل فيديو', icon: '🎬', category: 'marketing', isPremium: true, defaultContent: { videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', title: 'فيديو مميز' }, defaultStyle: { padding: '2rem' } },
-    { id: 'testimonials-def', type: 'testimonials', label: 'آراء العملاء', icon: '💬', category: 'marketing', isPremium: true, defaultContent: { title: 'آراء العملاء', items: [{name: 'عميل', text: 'خدمة رائعة', role: 'مشتري'}] }, defaultStyle: { padding: '2rem' } },
+    { id: 'hero', type: 'hero', label: 'واجهة ترحيبية', icon: '👋', category: 'marketing', isPremium: false, defaultContent: { title: 'عنوان رئيسي', subtitle: 'وصف فرعي', buttonText: 'زر إجراء' }, defaultStyle: {} },
+    { id: 'text', type: 'text', label: 'نص', icon: '📝', category: 'basic', isPremium: false, defaultContent: { text: 'أدخل النص هنا...' }, defaultStyle: {} },
+    { id: 'product_grid', type: 'product_grid', label: 'شبكة منتجات', icon: '🛍️', category: 'commerce', isPremium: false, defaultContent: { title: 'منتجاتنا', limit: 4 }, defaultStyle: {} },
+    { id: 'features', type: 'features', label: 'الميزات', icon: '✨', category: 'marketing', isPremium: false, defaultContent: { title: 'لماذا نحن؟' }, defaultStyle: {} },
+    { id: 'contact_form', type: 'contact_form', label: 'نموذج تواصل', icon: '✉️', category: 'basic', isPremium: false, defaultContent: { title: 'تواصل معنا' }, defaultStyle: {} },
+    { id: 'footer', type: 'footer', label: 'تذييل الصفحة', icon: '🔻', category: 'basic', isPremium: false, defaultContent: { copyright: 'جميع الحقوق محفوظة © 2024' }, defaultStyle: {} }
 ];
 
 const INITIAL_PLANS: BuilderPlan[] = [
-    { id: 'free', name: 'مجاني', price: 0, limits: { pages: 3, products: 10, storage: 100, visits: 1000 }, features: { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false }, allowedTemplates: ['default-store'], allowedBlocks: ['hero-def', 'text-def', 'contact-form-def', 'footer-def'] },
-    { id: 'basic', name: 'أساسي', price: 200, limits: { pages: 10, products: 100, storage: 1024, visits: 10000 }, features: { customDomain: true, ssl: true, builderAccess: true, htmlCssAccess: false }, allowedTemplates: 'all', allowedBlocks: 'all' },
-    { id: 'pro', name: 'احترافي', price: 500, limits: { pages: 50, products: 1000, storage: 5120, visits: 50000 }, features: { customDomain: true, ssl: true, builderAccess: true, htmlCssAccess: true }, allowedTemplates: 'all', allowedBlocks: 'all' }
+    {
+        id: 'free', name: 'مجاني', price: 0,
+        limits: { products: 10, storage: 100, visits: 1000, pages: 1 },
+        features: { customDomain: false, ssl: false, builderAccess: true, htmlCssAccess: false },
+        allowedTemplates: 'all', allowedBlocks: 'all'
+    },
+    {
+        id: 'basic', name: 'أساسي', price: 200,
+        limits: { products: 100, storage: 1024, visits: 10000, pages: 5 },
+        features: { customDomain: true, ssl: true, builderAccess: true, htmlCssAccess: false },
+        allowedTemplates: 'all', allowedBlocks: 'all'
+    },
+    {
+        id: 'pro', name: 'محترف', price: 500,
+        limits: { products: 1000, storage: 5120, visits: 50000, pages: 10 },
+        features: { customDomain: true, ssl: true, builderAccess: true, htmlCssAccess: true },
+        allowedTemplates: 'all', allowedBlocks: 'all'
+    }
 ];
 
 const App: React.FC = () => {
@@ -150,14 +150,14 @@ const App: React.FC = () => {
   const [websitePlans, setWebsitePlans] = useState<BuilderPlan[]>(INITIAL_PLANS);
 
   // Public view state
-  const [viewingPublicSite, setViewingPublicSite] = useState<{storeId: string} | null>(null);
+  const [viewingPublicSite, setViewingPublicSite] = useState<{identifier: string} | null>(null);
 
   // --- Initialization ---
   useEffect(() => {
     const init = async () => {
       try {
         await initDB();
-        setIsDbInitialized(true);
+        
         const loadedStores = await loadStores();
         const loadedAiSettings = await loadAISettings();
         const loadedMarketplace = await loadMarketplaceSettings();
@@ -298,6 +298,8 @@ const App: React.FC = () => {
         if (loadedPlans && loadedPlans.length > 0) {
             setWebsitePlans(loadedPlans);
         }
+        
+        setIsDbInitialized(true); // Set this LAST after everything is loaded
 
       } catch (error) {
         console.error("DB Initialization Failed:", error);
@@ -305,12 +307,12 @@ const App: React.FC = () => {
     };
     init();
 
-    // Check for "Public View" simulated route hash: #site/{storeId}
+    // Check for "Public View" simulated route hash: #site/{storeIdOrSlug}
     const checkHash = () => {
         const hash = window.location.hash;
         if (hash.startsWith('#site/')) {
-            const storeId = hash.split('/')[1];
-            if (storeId) setViewingPublicSite({ storeId });
+            const identifier = decodeURIComponent(hash.split('/')[1]); // Support Store ID or Slug
+            if (identifier) setViewingPublicSite({ identifier });
         } else {
             setViewingPublicSite(null);
         }
@@ -392,6 +394,54 @@ const App: React.FC = () => {
       setCurrentStore(updatedStore);
       setStores(prevStores => prevStores.map(s => s.id === updatedStore.id ? updatedStore : s));
   };
+
+  // --- AI Suggestions Effect ---
+  useEffect(() => {
+    const generateSuggestions = async () => {
+      if (!currentStore || !aiSettings.enableSuggestions || !process.env.API_KEY) return;
+
+      // Rate limiting: Check cooldown (e.g., 1 hour) to avoid spamming API
+      const lastGenKey = `lastAiGen_${currentStore.id}`;
+      const lastGenTime = parseInt(localStorage.getItem(lastGenKey) || '0');
+      const now = Date.now();
+      const COOLDOWN = 60 * 60 * 1000; // 1 hour
+
+      if (now - lastGenTime < COOLDOWN) return;
+
+      try {
+        const suggestions = await getAiSuggestions(currentStore, marketplaceModules, aiSettings);
+        
+        if (suggestions && suggestions.length > 0) {
+            const newMessages = suggestions.map(content => ({
+                id: `AIM-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                content,
+                timestamp: new Date().toISOString(),
+                read: false
+            }));
+
+            // We use functional update to ensure we have latest state if multiple updates occur
+            setStores(prevStores => prevStores.map(s => {
+                if (s.id === currentStore.id) {
+                    const updated = { ...s, aiMessages: [...newMessages, ...s.aiMessages] };
+                    // Also update currentStore reference if it matches
+                    setCurrentStore(updated);
+                    return updated;
+                }
+                return s;
+            }));
+            
+            localStorage.setItem(lastGenKey, now.toString());
+        }
+      } catch (error) {
+        console.error("Failed to fetch AI suggestions", error);
+      }
+    };
+
+    // Debounce the check to avoid running on every keystroke/update immediately
+    const timer = setTimeout(generateSuggestions, 3000);
+    return () => clearTimeout(timer);
+
+  }, [currentStore, aiSettings, marketplaceModules]); // Dependencies: run when store data changes
   
   const logActivity = (action: string) => {
       if (!currentStore || !currentUser) return;
@@ -555,11 +605,40 @@ const App: React.FC = () => {
       }));
   };
 
+  // --- Initial Loading State ---
+  if (!isDbInitialized) {
+      return (
+          <div className="flex items-center justify-center h-screen bg-gray-100">
+              <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">جاري تحميل النظام...</p>
+              </div>
+          </div>
+      );
+  }
 
   // --- View Selection ---
   if (viewingPublicSite) {
-      const store = stores.find(s => s.id === viewingPublicSite.storeId);
-      if (!store) return <div className="p-10 text-center">المتجر غير موجود.</div>;
+      // Find store by ID OR subdomain (slug)
+      const identifier = viewingPublicSite.identifier;
+      const store = stores.find(s => s.id === identifier || s.website?.subdomain === identifier);
+      
+      if (!store) {
+          // Fallback: Try to find a store by simple name match if store not found (optional, but good for UX if typing)
+          const fallbackStore = stores.find(s => s.name.toLowerCase().replace(/[\s\.]+/g, '-') === identifier);
+          if (fallbackStore) {
+              // If found by name, maybe we should use that
+              return (
+                  <PublicSiteRenderer 
+                      store={fallbackStore} 
+                      onBack={() => { window.location.hash = ''; }} 
+                      onNewOrder={(order) => handlePublicOrder(fallbackStore.id, order)}
+                  />
+              );
+          }
+          return <div className="p-10 text-center flex flex-col items-center justify-center h-screen bg-gray-50"><h1 className="text-2xl font-bold text-gray-800 mb-2">المتجر غير موجود</h1><p className="text-gray-600">تأكد من الرابط وحاول مرة أخرى.</p></div>;
+      }
+      
       return (
           <PublicSiteRenderer 
               store={store} 

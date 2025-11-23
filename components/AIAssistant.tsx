@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import type { AIMessage } from '../types';
 import { aiAvatarBase64 } from '../assets/ai-avatar';
@@ -9,9 +10,10 @@ interface AIAssistantProps {
   onFeedback: (messageId: string, feedback: 'positive' | 'negative') => void;
 }
 
-const MESSAGE_INTERVAL = 3 * 60 * 60 * 1000; // 3 hours
+// Reduced interval for better user experience (1 minute instead of 3 hours)
+const MESSAGE_INTERVAL = 60 * 1000; 
 const MESSAGE_DURATION = 2 * 60 * 1000; // 2 minutes
-const CHECK_INTERVAL = 1 * 60 * 1000; // Check every 1 minute
+const CHECK_INTERVAL = 10 * 1000; // Check every 10 seconds
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ messages, onAvatarClick, onFeedback }) => {
   const [currentMessage, setCurrentMessage] = useState<AIMessage | null>(null);
@@ -36,7 +38,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ messages, onAvatarClick, onFe
       const shownIds = new Set(JSON.parse(localStorage.getItem('shownAiMessageIds') || '[]'));
       // Find the latest message that hasn't been shown
       const messageToShow = [...messages]
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) // Sort descending (newest first)
         .find(m => !shownIds.has(m.id));
 
       if (messageToShow) {
