@@ -18,6 +18,7 @@ import type { Store, Employee, AISettings, ModuleDefinition, CostCenter, Activit
 
 // Component Imports
 import Login from './components/Login';
+import LandingPage from './components/LandingPage';
 import Dashboard from './components/Dashboard';
 import Sidebar from './components/Sidebar';
 import Inventory from './components/Inventory';
@@ -144,6 +145,9 @@ const App: React.FC = () => {
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
   const [isDbInitialized, setIsDbInitialized] = useState(false);
   
+  // View State
+  const [showLogin, setShowLogin] = useState(false);
+
   // Builder Assets State
   const [websiteTemplates, setWebsiteTemplates] = useState<WebTemplate[]>(DEFAULT_TEMPLATES);
   const [websiteBlocks, setWebsiteBlocks] = useState<BlockDefinition[]>(DEFAULT_BLOCK_DEFINITIONS);
@@ -164,6 +168,8 @@ const App: React.FC = () => {
         const loadedBuilderAssets = await loadBuilderAssets();
         const loadedPlans = await loadWebsitePlans();
         
+        let storesToSet = loadedStores || [];
+
         if (loadedStores && loadedStores.length > 0) {
              // --- DATA MIGRATION / FIX ---
              const patchedStores = loadedStores.map(store => {
@@ -194,6 +200,7 @@ const App: React.FC = () => {
                  return updatedStore;
              });
 
+            storesToSet = patchedStores;
             setStores(patchedStores);
             saveStores(patchedStores);
         } else {
@@ -274,6 +281,7 @@ const App: React.FC = () => {
                 csBotSettings: { enableWhatsApp: false, enableMessenger: false, welcomeMessage: "", autoReplyEnabled: false },
                 onlineOrders: []
             };
+            storesToSet = [defaultStore];
             setStores([defaultStore]);
         }
 
@@ -297,6 +305,26 @@ const App: React.FC = () => {
         
         if (loadedPlans && loadedPlans.length > 0) {
             setWebsitePlans(loadedPlans);
+        }
+        
+        // --- RESTORE SESSION ---
+        const sessionSuperAdmin = localStorage.getItem('nebras_session_superadmin');
+        if (sessionSuperAdmin === 'true') {
+            setIsSuperAdmin(true);
+        } else {
+            const sessionStoreId = localStorage.getItem('nebras_session_store_id');
+            const sessionUsername = localStorage.getItem('nebras_session_username');
+            
+            if (sessionStoreId && sessionUsername && storesToSet.length > 0) {
+                const foundStore = storesToSet.find(s => s.id === sessionStoreId);
+                if (foundStore) {
+                    const foundUser = foundStore.employees.find(e => e.username === sessionUsername);
+                    if (foundUser) {
+                        setCurrentStore(foundStore);
+                        setCurrentUser(foundUser);
+                    }
+                }
+            }
         }
         
         setIsDbInitialized(true); // Set this LAST after everything is loaded
@@ -356,6 +384,7 @@ const App: React.FC = () => {
   const handleLogin = (username: string, password: string): boolean => {
     if (username === 'superadmin' && password === 'superpassword') {
         setIsSuperAdmin(true);
+        localStorage.setItem('nebras_session_superadmin', 'true');
         return true;
     }
     for (const store of stores) {
@@ -367,6 +396,9 @@ const App: React.FC = () => {
             }
             setCurrentStore(store);
             setCurrentUser(employee);
+            // Save Session
+            localStorage.setItem('nebras_session_store_id', store.id);
+            localStorage.setItem('nebras_session_username', employee.username);
             return true;
         }
     }
@@ -378,6 +410,11 @@ const App: React.FC = () => {
     setCurrentStore(null);
     setIsSuperAdmin(false);
     setActiveView('dashboard');
+    setShowLogin(false);
+    // Clear Session
+    localStorage.removeItem('nebras_session_superadmin');
+    localStorage.removeItem('nebras_session_store_id');
+    localStorage.removeItem('nebras_session_username');
   };
 
   // --- Store Data Updaters ---
@@ -669,7 +706,10 @@ const App: React.FC = () => {
   }
 
   if (!currentUser || !currentStore) {
-    return <Login onLogin={handleLogin} />;
+    if (showLogin) {
+        return <Login onLogin={handleLogin} />;
+    }
+    return <LandingPage onNavigateToLogin={() => setShowLogin(true)} />;
   }
 
   const enabledModuleDefs = marketplaceModules.filter(m => currentStore.enabledModules.includes(m.id) || m.isCore);
