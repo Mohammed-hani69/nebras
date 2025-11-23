@@ -295,7 +295,7 @@ const SiteEditor: React.FC<SiteEditorProps> = ({ website, store, availableBlocks
 
         // 2. Image Fields
         if (key.toLowerCase().includes('image') || key.toLowerCase().includes('url') || key.toLowerCase().includes('src') || key.toLowerCase().includes('thumbnail') || key.toLowerCase().includes('logo')) {
-            return <ImageControl key={key} label={label} value={value} onChange={onChange} />;
+            return <ImageControl label={label} value={value} onChange={onChange} />;
         }
 
         // 3. Color Fields

@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { NebrasLogo } from './icons/Icons';
 
@@ -77,6 +75,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </button>
           </div>
         </form>
+
+        
       </div>
     </div>
   );

@@ -168,6 +168,8 @@ export interface BuilderPlan {
         ssl: boolean;
         builderAccess: boolean;
         htmlCssAccess: boolean;
+        premiumBlocks: boolean;
+        premiumTemplates: boolean;
     };
     allowedTemplates: 'all' | string[]; // 'all' or array of IDs
     allowedBlocks: 'all' | string[];
@@ -354,6 +356,9 @@ export interface Product {
   images?: string[]; // Array of image URLs
   isVisibleOnline?: boolean; // Toggle visibility
   description?: string; // HTML or Text description
+  // Optional Fields for UI/Logic
+  quantitySold?: number;
+  quantityAvailable?: number;
 }
 
 export interface InventoryMovement {

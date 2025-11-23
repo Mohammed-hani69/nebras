@@ -11,7 +11,8 @@ import SuperAdminMonitor from './SuperAdminMonitor';
 import SuperAdminPermissions from './SuperAdminPermissions';
 import SuperAdminGlobalSettings from './SuperAdminGlobalSettings';
 import SuperAdminSupport from './SuperAdminSupport';
-import SuperAdminWebsiteBuilder from './SuperAdminWebsiteBuilder'; // Import new component
+import SuperAdminWebsiteBuilder from './SuperAdminWebsiteBuilder';
+import SuperAdminProfile from './SuperAdminProfile'; // Import new component
 import { DocumentDownloadIcon, BellIcon, ExclamationTriangleIcon, PaperAirplaneIcon, SparklesIcon } from './icons/Icons';
 import { generateNotificationMessage } from '../services/geminiService';
 import { loadGlobalSettings, saveGlobalSettings } from '../services/db';
@@ -32,6 +33,9 @@ interface SuperAdminDashboardProps {
   // Website Plans
   websitePlans: BuilderPlan[];
   setWebsitePlans: React.Dispatch<React.SetStateAction<BuilderPlan[]>>;
+  // Admin Account Props
+  superAdminAccount: any;
+  onUpdateSuperAdmin: (data: any) => void;
 }
 
 const INITIAL_FORM_STATE = {
@@ -80,7 +84,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     stores, setStores, onLogout, aiSettings, onUpdateAISettings, 
     marketplaceModules, onUpdateMarketplaceModule,
     initialTemplates, initialBlocks, onUpdateTemplates, onUpdateBlocks,
-    websitePlans, setWebsitePlans
+    websitePlans, setWebsitePlans,
+    superAdminAccount, onUpdateSuperAdmin
 }) => {
     const [activeView, setActiveView] = useState('management');
     const [showForm, setShowForm] = useState(false);
@@ -732,6 +737,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                             plans={websitePlans}
                             setPlans={setWebsitePlans}
                         />;
+            case 'profile':
+                return <SuperAdminProfile account={superAdminAccount} onSave={onUpdateSuperAdmin} />;
             default:
                 return renderManagementView();
         }

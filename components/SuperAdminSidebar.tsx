@@ -1,8 +1,6 @@
 
-
-
 import React, { useState } from 'react';
-import { NebrasLogo, CubeIcon, BanknotesIcon, LogoutIcon, ChartPieIcon, CogIcon, StoreIcon, ServerStackIcon, ShieldCheckIcon, GlobeAltIcon, LifebuoyIcon, LayoutIcon } from './icons/Icons';
+import { NebrasLogo, CubeIcon, BanknotesIcon, LogoutIcon, ChartPieIcon, CogIcon, StoreIcon, ServerStackIcon, ShieldCheckIcon, GlobeAltIcon, LifebuoyIcon, LayoutIcon, UserCircleIcon } from './icons/Icons';
 
 interface SuperAdminSidebarProps {
   activeView: string;
@@ -22,6 +20,7 @@ const SuperAdminSidebar: React.FC<SuperAdminSidebarProps> = ({ activeView, setAc
     { id: 'profits', label: 'الأرباح', icon: <BanknotesIcon /> },
     { id: 'analysis', label: 'تحليل البيانات', icon: <ChartPieIcon /> },
     { id: 'ai-settings', label: 'إعدادات الذكاء الاصطناعي', icon: <CogIcon /> },
+    { id: 'profile', label: 'الملف الشخصي', icon: <UserCircleIcon /> },
   ];
 
   return (
