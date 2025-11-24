@@ -41,7 +41,7 @@ import {
     loadBuilderAssets, saveBuilderAssets,
     loadWebsitePlans, saveWebsitePlans
 } from './services/db';
-import type { Store, Employee, AISettings, ModuleDefinition, WebTemplate, BlockDefinition, BuilderPlan, Sale, Customer } from './types';
+import type { Store, Employee, AISettings, ModuleDefinition, WebTemplate, BlockDefinition, BuilderPlan, Sale, Customer, Invoice, Product, Service, Expense } from './types';
 import { SUBSCRIPTION_PLANS } from './data/subscriptionPlans';
 
 const DEFAULT_AI_SETTINGS: AISettings = {
@@ -79,6 +79,139 @@ const DEFAULT_MODULES: ModuleDefinition[] = [
     { id: 'user-guide', label: 'دليل الاستخدام', description: 'شروحات النظام', price: 0, category: 'basic', isCore: true, isVisible: true },
 ];
 
+// --- Demo Data Generator ---
+const createDemoStore = (): Store => {
+    const now = new Date();
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    
+    // Products
+    const products: Product[] = [
+        { id: 'PROD-001', name: 'iPhone 15 Pro Max', category: 'موبايل', costPrice: 45000, sellPrice: 52000, initialQuantity: 10, quantityAvailable: 8, quantitySold: 2, supplierId: 'SUP-001' },
+        { id: 'PROD-002', name: 'Samsung S24 Ultra', category: 'موبايل', costPrice: 40000, sellPrice: 48000, initialQuantity: 15, quantityAvailable: 12, quantitySold: 3, supplierId: 'SUP-001' },
+        { id: 'PROD-003', name: 'AirPods Pro 2', category: 'إكسسوار', costPrice: 8000, sellPrice: 10500, initialQuantity: 50, quantityAvailable: 45, quantitySold: 5, supplierId: 'SUP-002' },
+        { id: 'PROD-004', name: 'Anker Charger 20W', category: 'إكسسوار', costPrice: 500, sellPrice: 850, initialQuantity: 100, quantityAvailable: 88, quantitySold: 12, supplierId: 'SUP-002' },
+        { id: 'PROD-005', name: 'Screen Protector Glass', category: 'إكسسوار', costPrice: 50, sellPrice: 150, initialQuantity: 200, quantityAvailable: 150, quantitySold: 50, supplierId: 'SUP-002' },
+    ];
+
+    // Customers
+    const customers: Customer[] = [
+        { id: 'CUST-001', name: 'أحمد محمد', phone: '01012345678', joinDate: oneMonthAgo.toISOString(), loyaltyPoints: 150, transactions: [], segment: 'vip' },
+        { id: 'CUST-002', name: 'سارة علي', phone: '01122334455', joinDate: new Date().toISOString(), loyaltyPoints: 50, transactions: [], segment: 'new' },
+        { id: 'CUST-003', name: 'شركة الأمل للتجارة', phone: '01233344455', joinDate: oneMonthAgo.toISOString(), loyaltyPoints: 500, transactions: [], segment: 'vip' },
+    ];
+
+    // Sales
+    const sales: Sale[] = [
+        { 
+            invoiceId: 'INV-1001', date: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(), 
+            productId: 'PROD-001', quantity: 1, unitPrice: 52000, customerId: 'CUST-001', 
+            paymentMethod: 'cash', subtotal: 52000, taxRate: 14, taxAmount: 7280, totalAmount: 59280, amountPaid: 59280, remainingBalance: 0, isFullyPaid: true 
+        },
+        { 
+            invoiceId: 'INV-1002', date: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), 
+            productId: 'PROD-003', quantity: 2, unitPrice: 10500, customerId: 'CUST-002', 
+            paymentMethod: 'card', subtotal: 21000, taxRate: 14, taxAmount: 2940, totalAmount: 23940, amountPaid: 23940, remainingBalance: 0, isFullyPaid: true 
+        },
+         { 
+            invoiceId: 'INV-1003', date: new Date().toISOString(), 
+            productId: 'PROD-005', quantity: 5, unitPrice: 150, customerId: null, 
+            paymentMethod: 'cash', subtotal: 750, taxRate: 14, taxAmount: 105, totalAmount: 855, amountPaid: 855, remainingBalance: 0, isFullyPaid: true 
+        }
+    ];
+
+    // Invoices for the sales
+    const invoices: Invoice[] = sales.map(s => ({
+        id: `TAX-${s.invoiceId}`,
+        sourceId: s.invoiceId,
+        sourceType: 'sale',
+        date: s.date,
+        customerName: customers.find(c => c.id === s.customerId)?.name || 'عميل عام',
+        items: [{
+            description: products.find(p => p.id === s.productId)?.name || 'منتج',
+            quantity: s.quantity,
+            unitPrice: s.unitPrice,
+            total: s.subtotal
+        }],
+        subtotal: s.subtotal,
+        taxRate: s.taxRate,
+        taxAmount: s.taxAmount,
+        total: s.totalAmount,
+        amountPaid: s.amountPaid,
+        remainingBalance: s.remainingBalance,
+        zatcaStatus: 'pending'
+    }));
+
+    // Services
+    const services: Service[] = [
+        { 
+            orderId: 'SRV-501', date: new Date().toISOString(), description: 'تغيير شاشة iPhone 13', 
+            revenue: 3500, partsCost: 1200, paymentMethod: 'cash', customerId: 'CUST-001',
+            taxRate: 14, taxAmount: 490, totalAmount: 3990, amountPaid: 3990, remainingBalance: 0, isFullyPaid: true
+        }
+    ];
+
+    // Expenses
+    const expenses: Expense[] = [
+        { id: 'EXP-001', date: oneMonthAgo.toISOString(), description: 'إيجار المحل', amount: 5000, paymentMethod: 'cash' },
+        { id: 'EXP-002', date: new Date().toISOString(), description: 'فواتير كهرباء وإنترنت', amount: 1200, paymentMethod: 'bank_transfer' },
+    ];
+
+    return {
+        id: 'demo-store',
+        name: 'متجر المستقبل (تجريبي)',
+        ownerName: 'أحمد التجريبي',
+        ownerPhone: '01000000000',
+        ownerEmail: 'demo@nebras.com',
+        subscriptionStartDate: new Date().toISOString(),
+        subscriptionEndDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
+        subscriptionMonthlyPrice: 0,
+        storeType: 'إلكترونيات',
+        plan: 'pro',
+        enabledModules: DEFAULT_MODULES.map(m => m.id),
+        products,
+        sales,
+        invoices, // Pre-populate tax invoices
+        services,
+        expenses,
+        customers,
+        employees: [
+            { id: 'EMP-001', username: 'manager', password: '123', roleId: 'admin', fullName: 'المدير العام', phone: '01000000000', hireDate: new Date().toISOString(), baseSalary: 5000 }
+        ],
+        roles: [
+            { id: 'admin', name: 'مدير النظام', permissions: ['all'] }
+        ],
+        suppliers: [
+             { id: 'SUP-001', name: 'شركة العربي جروب', phone: '011111', email: 'sales@elaraby.com', address: 'القاهرة', contactPerson: 'أ. علي' },
+             { id: 'SUP-002', name: 'دبي فون', phone: '022222', email: 'info@dubaiphone.com', address: 'دبي', contactPerson: 'أ. خالد' }
+        ],
+        purchaseOrders: [],
+        paymentHistory: [],
+        aiMessages: [{ id: 'MSG-001', content: 'مرحباً بك في نظام نبراس! هذه بيانات تجريبية لمساعدتك على استكشاف النظام.', timestamp: new Date().toISOString(), read: false }],
+        billingSettings: { storeName: 'متجر المستقبل', taxNumber: '3000111222', taxRate: 14, address: 'الرياض - شارع العليا', phone: '0500000000' },
+        inventoryMovements: [],
+        saleReturns: [],
+        purchaseReturns: [],
+        activityLogs: [],
+        installmentPlans: [],
+        quotations: [],
+        attendance: [],
+        payrolls: [],
+        leaves: [],
+        advances: [],
+        hrSettings: { workingDays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'], officialCheckInTime: '09:00', absenceDeductionMethod: 'daily_rate' },
+        notifications: [],
+        supportTickets: [],
+        leads: [],
+        treasuries: [{ id: 'TR-01', name: 'الخزينة الرئيسية', balance: 50000 }],
+        bankAccounts: [{ id: 'BK-01', bankName: 'البنك الأهلي', accountNumber: 'SA123456', balance: 100000, currency: 'SAR' }],
+        financialTransactions: [],
+        accounts: [],
+        journalEntries: [],
+        costCenters: [],
+        budgets: []
+    };
+};
+
 const App: React.FC = () => {
     const [stores, setStores] = useState<Store[]>([]);
     const [currentUser, setCurrentUser] = useState<Employee | null>(null);
@@ -115,8 +248,16 @@ const App: React.FC = () => {
             await initDB();
             
             const loadedStores = await loadStores();
-            const currentStoresList = loadedStores || [];
-            if (loadedStores) setStores(loadedStores);
+            let currentStoresList = loadedStores || [];
+            
+            // Seed Demo Data if no stores exist
+            if (currentStoresList.length === 0) {
+                const demoStore = createDemoStore();
+                currentStoresList = [demoStore];
+                await saveStores(currentStoresList);
+            }
+            
+            setStores(currentStoresList);
 
             const loadedAiSettings = await loadAISettings();
             if (loadedAiSettings) setAiSettings(loadedAiSettings);
@@ -273,7 +414,73 @@ const App: React.FC = () => {
         updateQuotationStatus: (id: string, status: any) => updateCurrentStore(s => ({...s, quotations: s.quotations.map(q => q.id === id ? {...q, status} : q)})),
         convertQuotationToInvoice: (id: string) => { /* ... implementation ... */ },
         addService: (srv: any) => updateCurrentStore(s => ({...s, services: [...s.services, {...srv, orderId: `SRV-${Date.now()}`}]})),
-        createTaxInvoice: (src: string, type: string) => { /* ... implementation ... */ },
+        createTaxInvoice: (src: string, type: 'sale' | 'service') => updateCurrentStore(s => {
+            // Check duplicates
+            if (s.invoices.some(inv => inv.sourceId === src && inv.sourceType === type)) return s;
+
+            let newInvoice: Invoice | null = null;
+            const invoiceId = `TAX-${Date.now()}`;
+            const dateNow = new Date().toISOString();
+
+            if (type === 'sale') {
+                const sale = s.sales.find(x => x.invoiceId === src);
+                if (sale) {
+                    const product = s.products.find(p => p.id === sale.productId);
+                    const customer = s.customers.find(c => c.id === sale.customerId);
+                    newInvoice = {
+                        id: invoiceId,
+                        sourceId: src,
+                        sourceType: 'sale',
+                        date: dateNow,
+                        customerName: customer?.name || 'عميل عام',
+                        items: [{
+                            description: product?.name || 'منتج',
+                            quantity: sale.quantity,
+                            unitPrice: sale.unitPrice,
+                            total: sale.subtotal
+                        }],
+                        subtotal: sale.subtotal,
+                        taxRate: sale.taxRate,
+                        taxAmount: sale.taxAmount,
+                        total: sale.totalAmount,
+                        amountPaid: sale.amountPaid,
+                        remainingBalance: sale.remainingBalance,
+                        zatcaStatus: 'pending'
+                    };
+                }
+            } else if (type === 'service') {
+                const service = s.services.find(x => x.orderId === src);
+                if (service) {
+                    const customer = s.customers.find(c => c.id === service.customerId);
+                    newInvoice = {
+                        id: invoiceId,
+                        sourceId: src,
+                        sourceType: 'service',
+                        date: dateNow,
+                        customerName: customer?.name || 'عميل عام',
+                        items: [{
+                            description: service.description,
+                            quantity: 1,
+                            unitPrice: service.revenue,
+                            total: service.revenue
+                        }],
+                        subtotal: service.revenue,
+                        taxRate: service.taxRate,
+                        taxAmount: service.taxAmount,
+                        total: service.totalAmount,
+                        amountPaid: service.amountPaid,
+                        remainingBalance: service.remainingBalance,
+                        zatcaStatus: 'pending'
+                    };
+                }
+            }
+
+            if (newInvoice) {
+                return { ...s, invoices: [...s.invoices, newInvoice] };
+            }
+            return s;
+        }),
+        updateInvoiceStatus: (id: string, status: any) => updateCurrentStore(s => ({...s, invoices: s.invoices.map(inv => inv.id === id ? {...inv, zatcaStatus: status} : inv)})),
         addSupplier: (sup: any) => updateCurrentStore(s => ({...s, suppliers: [...s.suppliers, {...sup, id: `SUP-${Date.now()}`}]})),
         updateSupplier: (sup: any) => updateCurrentStore(s => ({...s, suppliers: s.suppliers.map(x => x.id === sup.id ? sup : x)})),
         addPurchaseOrder: (po: any) => updateCurrentStore(s => ({...s, purchaseOrders: [...s.purchaseOrders, {...po, id: `PO-${Date.now()}`, status: 'pending', payments: []}]})),
@@ -404,6 +611,7 @@ const App: React.FC = () => {
                             customers={currentStore.customers}
                             addCustomer={handlers.addCustomer}
                             createTaxInvoice={handlers.createTaxInvoice}
+                            updateInvoiceStatus={handlers.updateInvoiceStatus}
                             saleReturns={currentStore.saleReturns}
                             addSaleReturn={(r: any) => handlers.updateStore(s => ({...s, saleReturns: [...s.saleReturns, {...r, id: `RET-${Date.now()}`, date: new Date().toISOString(), status: 'pending'}]}))}
                             logActivity={handlers.logActivity}

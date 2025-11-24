@@ -610,6 +610,7 @@ export interface Invoice {
     total: number;
     amountPaid: number;
     remainingBalance: number;
+    zatcaStatus?: 'pending' | 'reported' | 'accepted' | 'rejected'; // ZATCA Integration Status
 }
 
 export interface Quotation {

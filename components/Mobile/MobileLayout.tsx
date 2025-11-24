@@ -31,6 +31,10 @@ import ModuleMarketplace from '../ModuleMarketplace';
 import StoreSystemSupport from '../StoreSystemSupport';
 import WebsiteBuilder from '../WebsiteBuilder/WebsiteBuilder';
 
+// Import Full Components for HR and Customers
+import HRManagement from '../HRManagement';
+import CustomerManagement from '../CustomerManagement';
+
 const MenuIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -74,10 +78,39 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
                         />;
             case 'inventory':
                 return <MobileInventory store={store} handlers={handlers} />;
+            
+            // Full HR Management Component
             case 'hr-management':
-                return <MobileGenericList title="الموظفين" data={store.employees} type="employee" handlers={handlers} />;
+                return (
+                    <DesktopWrapper>
+                        <HRManagement store={store} updateStore={handlers.updateStorePartial} />
+                    </DesktopWrapper>
+                );
+
+            // Full Customer Management Component
             case 'customer-management':
-                return <MobileGenericList title="العملاء" data={store.customers} type="customer" handlers={handlers} />;
+                return (
+                    <DesktopWrapper>
+                        <CustomerManagement 
+                            customers={store.customers} 
+                            sales={store.sales}
+                            products={store.products}
+                            leads={store.leads}
+                            aiSettings={aiSettings}
+                            addCustomer={handlers.addCustomer}
+                            updateCustomer={(c) => handlers.updateStore((s: Store) => ({...s, customers: s.customers.map(x => x.id === c.id ? c : x)}))}
+                            deleteCustomer={(id) => handlers.updateStore((s: Store) => ({...s, customers: s.customers.filter(x => x.id !== id)}))}
+                            addCustomerTransaction={(id, t) => handlers.updateStore((s: Store) => ({...s, customers: s.customers.map(c => c.id === id ? {...c, transactions: [...c.transactions, {...t, id: `TRX-${Date.now()}`, date: new Date().toISOString()}]} : c)}))}
+                            logActivity={handlers.logActivity}
+                            addLead={(l) => handlers.updateStore((s: Store) => ({...s, leads: [...s.leads, {...l, id: `LEAD-${Date.now()}`, createdAt: new Date().toISOString(), interactions: [], tasks: []}]}))}
+                            updateLeadStatus={(id, st) => handlers.updateStore((s: Store) => ({...s, leads: s.leads.map(l => l.id === id ? {...l, status: st} : l)}))}
+                            addCRMInteraction={(id, i) => handlers.updateStore((s: Store) => ({...s, leads: s.leads.map(l => l.id === id ? {...l, interactions: [...l.interactions, {...i, id: `INT-${Date.now()}`}]} : l)}))}
+                            addCRMTask={(id, t) => handlers.updateStore((s: Store) => ({...s, leads: s.leads.map(l => l.id === id ? {...l, tasks: [...l.tasks, {...t, id: `TSK-${Date.now()}`}]} : l)}))}
+                            updateLeadAI={(id, data) => handlers.updateStore((s: Store) => ({...s, leads: s.leads.map(l => l.id === id ? {...l, ...data} : l)}))}
+                        />
+                    </DesktopWrapper>
+                );
+
             case 'notifications-center':
                 return <MobileNotifications store={store} handlers={handlers} />;
             case 'menu':

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Product, Sale, Customer, PaymentMethod, SaleReturn, ReturnReason, Invoice, Store } from '../types';
 import InvoiceViewer from './InvoiceViewer';
+import { CloudArrowUpIcon, CheckCircleIcon } from './icons/Icons';
 
 interface POSProps {
   store: Store;
@@ -11,6 +12,7 @@ interface POSProps {
   customers: Customer[];
   addCustomer: (customer: Omit<Customer, 'id' | 'joinDate' | 'loyaltyPoints' | 'transactions'>) => Customer;
   createTaxInvoice: (sourceId: string, sourceType: 'sale') => void;
+  updateInvoiceStatus: (id: string, status: 'pending' | 'reported' | 'accepted' | 'rejected') => void;
   saleReturns: SaleReturn[];
   addSaleReturn: (saleReturn: Omit<SaleReturn, 'id' | 'date' | 'status'>) => void;
   logActivity: (action: string) => void;
@@ -18,7 +20,7 @@ interface POSProps {
   invoices: Invoice[];
 }
 
-const POS: React.FC<POSProps> = ({ store, products, addSale, sales, customers, addCustomer, createTaxInvoice, saleReturns, addSaleReturn, logActivity, taxRate, invoices }) => {
+const POS: React.FC<POSProps> = ({ store, products, addSale, sales, customers, addCustomer, createTaxInvoice, updateInvoiceStatus, saleReturns, addSaleReturn, logActivity, taxRate, invoices }) => {
   const [productId, setProductId] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [unitPrice, setUnitPrice] = useState(0);
@@ -48,6 +50,7 @@ const POS: React.FC<POSProps> = ({ store, products, addSale, sales, customers, a
 
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
   
   const subtotal = quantity * unitPrice;
   const taxAmount = subtotal * (taxRate / 100);
@@ -128,6 +131,18 @@ const POS: React.FC<POSProps> = ({ store, products, addSale, sales, customers, a
     });
     setReturnModalData(null);
     alert("تم تسجيل المرتجع بنجاح وتم إعادة الكمية للمخزون.");
+  };
+  
+  const handleSendToZatca = async (invoiceId: string) => {
+      if (window.confirm('هل أنت متأكد من إرسال الفاتورة لهيئة الزكاة والضريبة والجمارك؟ لا يمكن التراجع عن هذا الإجراء.')) {
+          setSendingId(invoiceId);
+          // Simulate API call delay
+          setTimeout(() => {
+              updateInvoiceStatus(invoiceId, 'accepted');
+              setSendingId(null);
+              alert('تم إرسال الفاتورة واعتمادها من الهيئة بنجاح (محاكاة).');
+          }, 2000);
+      }
   };
 
 
@@ -374,6 +389,8 @@ const POS: React.FC<POSProps> = ({ store, products, addSale, sales, customers, a
             <tbody>
               {filteredSales.map(sale => {
                  const invoice = invoices.find(inv => inv.id === sale.invoiceId);
+                 const isSent = invoice?.zatcaStatus === 'accepted';
+                 
                  return (
                   <tr key={sale.invoiceId} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="p-3 font-mono text-sm">{sale.invoiceId}</td>
@@ -382,20 +399,44 @@ const POS: React.FC<POSProps> = ({ store, products, addSale, sales, customers, a
                     <td className="p-3 text-sm">{getCustomerNameById(sale.customerId)}</td>
                     <td className="p-3 font-bold text-sm">{sale.totalAmount.toLocaleString()} ج.م</td>
                     <td className="p-3 text-sm">{sale.paymentMethod === 'installment' ? 'تقسيط' : 'نقدي/أخرى'}</td>
-                    <td className="p-3 flex gap-2">
+                    <td className="p-3 flex gap-2 flex-wrap">
                          <button 
                              onClick={() => {setReturnModalData(sale);}}
                              className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200"
                          >
                              إرجاع
                          </button>
-                         <button 
-                            onClick={() => { if(invoice) setSelectedInvoice(invoice); }}
-                            disabled={!invoice}
-                            className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
-                         >
-                             {invoice ? 'طباعة الفاتورة' : 'غير متوفرة'}
-                         </button>
+                         {invoice ? (
+                             <div className="flex gap-1">
+                                 <button 
+                                    onClick={() => setSelectedInvoice(invoice)}
+                                    className={`text-xs px-2 py-1 rounded transition bg-blue-100 text-blue-700 hover:bg-blue-200`}
+                                 >
+                                     عرض / طباعة
+                                 </button>
+                                 {!isSent ? (
+                                     <button 
+                                         onClick={() => handleSendToZatca(invoice.id)}
+                                         disabled={sendingId === invoice.id}
+                                         className={`text-xs px-2 py-1 rounded transition flex items-center gap-1 text-white ${sendingId === invoice.id ? 'bg-purple-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+                                         title="إرسال الفاتورة الإلكترونية لهيئة الزكاة"
+                                     >
+                                         {sendingId === invoice.id ? 'جاري الإرسال...' : <><CloudArrowUpIcon /> إرسال (Fatoora)</>}
+                                     </button>
+                                 ) : (
+                                     <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 border border-green-200 flex items-center gap-1 font-bold">
+                                         <CheckCircleIcon /> معتمدة
+                                     </span>
+                                 )}
+                             </div>
+                         ) : (
+                            <button 
+                                onClick={() => createTaxInvoice(sale.invoiceId, 'sale')}
+                                className={`text-xs px-2 py-1 rounded transition bg-green-100 text-green-700 hover:bg-green-200`}
+                            >
+                                توليد فاتورة إلكترونية
+                            </button>
+                         )}
                     </td>
                   </tr>
                  );
@@ -449,4 +490,3 @@ const POS: React.FC<POSProps> = ({ store, products, addSale, sales, customers, a
 };
 
 export default POS;
-    
